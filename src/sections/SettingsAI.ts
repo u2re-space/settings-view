@@ -2,6 +2,7 @@ import { H } from "fest/lure";
 
 export const createAiSection = () => H`<section class="card settings-tab-panel is-active" data-tab-panel="ai">
       <h3>AI</h3>
+      <form class="settings-panel-form" novalidate onsubmit="return false">
       <label class="field">
         <span>Base URL</span>
         <input placeholder="https://api.proxyapi.ru/openai/v1" class="form-input" type="url" inputmode="url" autocomplete="off" data-field="ai.baseUrl" />
@@ -114,4 +115,5 @@ export const createAiSection = () => H`<section class="card settings-tab-panel i
         <span>Speech Recognition language</span>
         <select class="form-select" data-field="speech.language"></select>
       </label>
+      </form>
     </section>` as HTMLElement;

@@ -72,3 +72,19 @@ export const readTrimmedControlValue = (
 export const readCheckboxValue = (control: HTMLInputElement | null | undefined, fallback: boolean): boolean => {
     return control ? Boolean(control.checked) : fallback;
 };
+
+/**
+ * Innermost `Element` for delegated handlers — prefer `composedPath()` so Text targets,
+ * shadow-tree retargeting, and Chrome extension pages resolve like a real hit element.
+ */
+export const eventTargetElement = (ev: Event): Element | null => {
+    if (typeof ev.composedPath === "function") {
+        for (const n of ev.composedPath()) {
+            if (n instanceof Element) return n;
+        }
+    }
+    const raw = ev.target;
+    if (raw instanceof Element) return raw;
+    if (raw instanceof Text) return raw.parentElement;
+    return null;
+};

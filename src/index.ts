@@ -65,13 +65,24 @@ export class SettingsView implements View {
     private element: HTMLElement | null = null;
     private settings = ref<AppSettings>(defaultSettings);
 
+    /** Document-level adopted sheet (PWA / no shadow). */
     private _sheet: CSSStyleSheet | null = null;
+    /** Shell open-shadow: same CSS must be on `shadowRoot.adoptedStyleSheets` — document rules do not pierce. */
+    private _shadowSheet: { sheet: CSSStyleSheet; root: ShadowRoot } | null = null;
+    /** Fallback if constructable stylesheet fails in a shadow root. */
+    private _styleEl: HTMLStyleElement | null = null;
 
     lifecycle: ViewLifecycle = {
-        onMount: () => { this._sheet ??= loadAsAdopted(settingsStyles) as CSSStyleSheet; },
-        onUnmount: () => { removeAdopted(this._sheet!); },
-        onShow: () => { this._sheet ??= loadAsAdopted(settingsStyles) as CSSStyleSheet; },
-        //onHide: () => { removeAdopted(this._sheet!); },
+        // WHY: Append the view to the shell before adopting — then `getRootNode()` is the shell ShadowRoot.
+        onUnmount: () => {
+            this.clearSettingsStylesheet();
+        },
+        onShow: () => {
+            this.applySettingsStylesheet();
+        },
+        onHide: () => {
+            this.clearSettingsStylesheet();
+        },
     };
 
     constructor(options: SettingsOptions = {}) {
@@ -85,7 +96,6 @@ export class SettingsView implements View {
             this.shellContext = options.shellContext || this.shellContext;
         }
 
-        this._sheet = loadAsAdopted(settingsStyles) as CSSStyleSheet;
         this.loadSettings();
 
         /*this.element = H`
@@ -193,13 +203,15 @@ export class SettingsView implements View {
             </div>
         ` as HTMLElement;*/
 
+        const isExtensionRuntime =
+            typeof (globalThis as unknown as { chrome?: { runtime?: { id?: string } } }).chrome !== "undefined" &&
+            Boolean((globalThis as unknown as { chrome?: { runtime?: { id?: string } } }).chrome?.runtime?.id);
+
         this.element = createSettingsView({
-            isExtension: false,
+            isExtension: isExtensionRuntime,
             initialTab: options?.params?.tab || options?.params?.focus,
             onTheme: (theme) => {
-                const nextTheme = theme as "auto" | "light" | "dark";
-                this.applyShellTheme(nextTheme);
-                this.options.onThemeChange?.(nextTheme);
+                this.options.onThemeChange?.(theme as "auto" | "light" | "dark");
             }
         });
 
@@ -254,14 +266,53 @@ export class SettingsView implements View {
         this.shellContext?.showMessage(message);
     }
 
-    private applyShellTheme(theme: "auto" | "light" | "dark"): void {
-        const root = this.element?.closest("[data-shell]") as HTMLElement | null;
-        if (!root) return;
-        const resolved = theme === "auto"
-            ? (globalThis?.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light")
-            : theme;
-        root.dataset.theme = resolved;
-        root.style.colorScheme = resolved;
+    private applySettingsStylesheet(): void {
+        if (this._sheet || this._shadowSheet || this._styleEl) return;
+        const el = this.element;
+        if (!el?.isConnected) return;
+
+        const css = String(settingsStyles || "");
+        const root = el.getRootNode();
+
+        if (root instanceof ShadowRoot) {
+            try {
+                const sheet = new CSSStyleSheet();
+                sheet.replaceSync(css);
+                root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
+                this._shadowSheet = { sheet, root };
+            } catch (e) {
+                console.warn("[SettingsView] Shadow stylesheet adoption failed; using <style> fallback", e);
+                const s = document.createElement("style");
+                s.setAttribute("data-settings-view-css", "");
+                s.textContent = css;
+                root.appendChild(s);
+                this._styleEl = s;
+            }
+        } else {
+            this._sheet = loadAsAdopted(settingsStyles) as CSSStyleSheet;
+        }
+    }
+
+    private clearSettingsStylesheet(): void {
+        try {
+            if (this._styleEl) {
+                this._styleEl.remove();
+                this._styleEl = null;
+                return;
+            }
+            if (this._shadowSheet) {
+                const { sheet, root } = this._shadowSheet;
+                root.adoptedStyleSheets = root.adoptedStyleSheets.filter((s) => s !== sheet);
+                this._shadowSheet = null;
+                return;
+            }
+            if (this._sheet) {
+                removeAdopted(this._sheet);
+                this._sheet = null;
+            }
+        } catch {
+            /* ignore */
+        }
     }
 
     canHandleMessage(messageType: string): boolean {
@@ -279,6 +330,23 @@ export class SettingsView implements View {
     invokeChannelApi(action: string, payload?: unknown): unknown {
         if (action === SettingsChannelAction.Patch || action === SettingsChannelAction.SettingsUpdate) {
             void this.handleMessage({ data: payload as Partial<AppSettings> });
+            void (async () => {
+                try {
+                    const [{ loadSettings }, { applyTheme }] = await Promise.all([
+                        import("com/config/Settings"),
+                        import("core/utils/Theme")
+                    ]);
+                    const cur = await loadSettings();
+                    const patch = payload as Partial<AppSettings>;
+                    applyTheme({
+                        ...cur,
+                        ...patch,
+                        appearance: { ...(cur.appearance || {}), ...(patch.appearance || {}) }
+                    } as AppSettings);
+                } catch (e) {
+                    console.warn("[SettingsView] channel applyTheme failed:", e);
+                }
+            })();
             return true;
         }
         return undefined;

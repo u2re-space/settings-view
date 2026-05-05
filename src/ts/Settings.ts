@@ -1,6 +1,3 @@
-//@ts-ignore
-import style from "../scss/Settings.scss?inline";
-
 import { H } from "fest/lure";
 import { loadSettings, saveSettings } from "com/config/Settings";
 import { BUILTIN_AI_MODELS, type AppSettings, type CoreMode } from "com/config/SettingsTypes";
@@ -9,7 +6,6 @@ import { sendMessage } from "com/core/UnifiedMessaging";
 import { applyTheme } from "core/utils/Theme";
 import { setString, StorageKeys } from "core/storage";
 import { navigateToView } from "shells/boot";
-import { loadAsAdopted } from "fest/dom";
 import { applyAirpadRuntimeFromAppSettings } from "views/airpad/config/config";
 
 import {
@@ -20,6 +16,7 @@ import {
     readCheckboxValue,
     readTrimmedControlValue,
     speechLanguageLabel,
+    eventTargetElement,
 } from "./settings-utils";
 import { collectMcpConfigurations, createMcpRow, renderMcpConfigurations } from "./settings-mcp";
 import { createSettingsFooter } from "../sections/SettingsFooter";
@@ -39,7 +36,6 @@ export type SettingsViewOptions = {
 };
 
 export const createSettingsView = (opts: SettingsViewOptions) => {
-    loadAsAdopted(style);
     let note: HTMLElement | null = null;
     const setNote = (text: string) => {
         if (!note) return;
@@ -238,10 +234,22 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         for (const panel of Array.from(panels)) {
             const el = panel as HTMLElement;
             const isActive = el.getAttribute("data-tab-panel") === nextTab;
-            if (el.hidden && isActive) continue;
+            /* Extension panel starts `hidden` until `isExtension`; must activate when shown. */
+            if (isActive) el.hidden = false;
             el.classList.toggle("is-active", isActive);
         }
     };
+
+    /* Direct handlers: tab strip sits under shell shadow / CRX options UI; delegation misses some hits. */
+    for (const tabEl of root.querySelectorAll<HTMLButtonElement>(
+        '[data-settings-tabs] button[type="button"][data-action="switch-settings-tab"][data-tab]'
+    )) {
+        tabEl.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            switchSettingsTab(tabEl.getAttribute("data-tab") || "ai");
+        });
+    }
 
     const resolveInitialTab = (raw?: string): string => {
         const normalized = (raw || "").trim().toLowerCase();
@@ -441,7 +449,8 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             refreshAdminDoorPreview();
             renderMcpConfigurations(mcpSection, Array.isArray(s?.ai?.mcp) ? s.ai.mcp : []);
             applyAirpadRuntimeFromAppSettings(s);
-            opts.onTheme?.((theme?.value as any) || "auto");
+            applyTheme(s);
+            opts.onTheme?.(((s?.appearance?.theme as string) || "auto") as "auto" | "light" | "dark");
         })
         .catch(() => {
             renderMcpConfigurations(mcpSection, []);
@@ -453,17 +462,23 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
     });
 
     theme?.addEventListener("change", () => {
-        opts.onTheme?.((theme.value as any) || "auto");
+        const t = ((theme.value as string) || "auto") as AppSettings["appearance"]["theme"];
+        void (async () => {
+            try {
+                const cur = await loadSettings();
+                applyTheme({
+                    ...cur,
+                    appearance: { ...(cur.appearance || {}), theme: t },
+                });
+            } catch {
+                applyTheme({ appearance: { theme: t, fontSize: "medium" } } as AppSettings);
+            }
+            opts.onTheme?.(t);
+        })();
     });
 
     root.addEventListener("click", (e) => {
-        const t = e.target as HTMLElement | null;
-        const tabBtn = t?.closest?.('button[data-action="switch-settings-tab"]') as HTMLButtonElement | null;
-        if (tabBtn) {
-            switchSettingsTab(tabBtn.getAttribute("data-tab") || "ai");
-            return;
-        }
-
+        const t = eventTargetElement(e);
         const addMcpBtn = t?.closest?.('button[data-action="add-mcp-server"]') as HTMLButtonElement | null;
         if (addMcpBtn && mcpSection) {
             mcpSection.querySelector(".mcp-empty-note")?.remove();

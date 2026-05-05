@@ -7,6 +7,7 @@ export const createServerSection = () => H`<section class="card settings-tab-pan
         Connect to the hub with server URL and client id. Optional client identifier token and TLS options below.
       </p>
       <h4>Endpoint and identity</h4>
+      <form class="settings-panel-form" novalidate onsubmit="return false">
       <label class="field">
         <span>Server URL</span>
         <input class="form-input" type="url" inputmode="url" autocomplete="off" placeholder="https://192.168.0.200:8443" data-field="core.endpointUrl" />
@@ -27,4 +28,5 @@ export const createServerSection = () => H`<section class="card settings-tab-pan
         <input type="checkbox" data-field="core.allowInsecureTls" />
         <span>Allow self-signed / insecure TLS</span>
       </label>
+      </form>
     </section>` as HTMLElement;
