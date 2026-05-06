@@ -77,12 +77,13 @@ export const createCustomInstructionsEditor = (opts: CustomInstructionsEditorOpt
     const renderList = () => {
         listEl.replaceChildren();
 
-        if (!state.instructions.length) {
+        const items = state.instructions ?? [];
+        if (!items.length) {
             listEl.append(H`<div class="ci-empty">No custom instructions. Add one or use templates.</div>` as HTMLElement);
             return;
         }
 
-        for (const instr of state.instructions) {
+        for (const instr of items) {
             const isEditing = state.editingId === instr.id;
             const isActive = state.activeId === instr.id;
 
@@ -161,7 +162,7 @@ export const createCustomInstructionsEditor = (opts: CustomInstructionsEditorOpt
         selectEl.replaceChildren();
         selectEl.append(H`<option value="">None (use default)</option>` as HTMLOptionElement);
 
-        for (const instr of state.instructions) {
+        for (const instr of state.instructions ?? []) {
             const opt = H`<option value="${instr.id}">${instr.label}</option>` as HTMLOptionElement;
             if (instr.id === state.activeId) opt.selected = true;
             selectEl.append(opt);
@@ -174,9 +175,12 @@ export const createCustomInstructionsEditor = (opts: CustomInstructionsEditorOpt
     };
 
     const loadData = async () => {
-        const snapshot = await getInstructionRegistry();
-        state.instructions = snapshot.instructions;
-        state.activeId = snapshot.activeId;
+        const raw = await getInstructionRegistry();
+        const snapshot = Array.isArray(raw)
+            ? { instructions: raw as CustomInstruction[], activeId: "", activeInstruction: null as CustomInstruction | null }
+            : raw;
+        state.instructions = snapshot?.instructions ?? [];
+        state.activeId = snapshot?.activeId ?? "";
         renderList();
         updateSelect();
     };
@@ -216,7 +220,7 @@ export const createCustomInstructionsEditor = (opts: CustomInstructionsEditorOpt
         }
 
         if (action === "add-templates") {
-            const existingLabels = new Set(state.instructions.map((i: any) => i.label.trim().toLowerCase()));
+            const existingLabels = new Set((state.instructions ?? []).map((i: any) => i.label.trim().toLowerCase()));
             const templatesToAdd = DEFAULT_INSTRUCTION_TEMPLATES.filter((t: any) => !existingLabels.has(t.label.trim().toLowerCase()));
 
             if (!templatesToAdd.length) {

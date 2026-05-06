@@ -314,8 +314,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         }
     };
 
-    void loadSettings()
-        .then((s) => {
+    void Promise.resolve(loadSettings()).then((s) => {
             if (apiUrl) apiUrl.value = (s?.ai?.baseUrl || "").trim();
             if (apiKey) apiKey.value = (s?.ai?.apiKey || "").trim();
             const savedModel = (s?.ai?.model || "gpt-5.4").trim();
