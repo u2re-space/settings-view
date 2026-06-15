@@ -1,4 +1,5 @@
 import { H } from "fest/lure";
+import { isEnabledView } from "core/routing/core/views";
 import { loadSettings, saveSettings } from "com/config/Settings";
 import { BUILTIN_AI_MODELS, type AppSettings, type CoreMode } from "com/config/SettingsTypes";
 import { openAdminDoorFromCore, resolveAdminDoorUrls } from "com/config/admin-doors";
@@ -28,6 +29,17 @@ import { createMcpSection } from "../sections/SettingsMcp";
 import { createServerSection } from "../sections/SettingsServer";
 import { createInstructionsSection } from "../sections/SettingsInstructions";
 import { createExtensionSection } from "../sections/SettingsExtension";
+import type { SettingsContributionContext } from "com/config/SettingsContributions";
+import {
+    mountContributions,
+    applyContributions,
+    collectContributions,
+    resolveCwspSettingsBeforeSave,
+    contributedTabIds,
+    registerBuiltinSettingsContributions,
+    resolveSettingsSurface
+} from "./settings-contributions";
+import { resolveConnectHostToOrigin } from "cwsp-shared/cwsp-endpoint-resolve";
 
 export type SettingsViewOptions = {
     isExtension: boolean;
@@ -56,6 +68,24 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
     </div>
     ${createSettingsFooter()}
   </div>` as HTMLElement;
+
+    // Contributed settings: each view/shell can add its own tab + panel. Mount
+    // them now (before tab click handlers are wired below) so they behave like
+    // built-in tabs and persist generically through load/save.
+    registerBuiltinSettingsContributions();
+    const contributionCtx: SettingsContributionContext = {
+        isExtension: opts.isExtension,
+        surface: resolveSettingsSurface()
+    };
+    mountContributions(root, contributionCtx);
+
+    // The built-in Markdown section is owned by the markdown viewer. Drop its
+    // tab + panel when `viewer` isn't enabled (e.g. CWSAndroid AirPad+Settings),
+    // so there are no orphan view settings.
+    if (!isEnabledView("viewer")) {
+        root.querySelector('[data-tab-panel="markdown"]')?.remove();
+        root.querySelector('[data-action="switch-settings-tab"][data-tab="markdown"]')?.remove();
+    }
 
     const field = (sel: string) => root.querySelector(sel) as HTMLInputElement | HTMLSelectElement | null;
     note = root.querySelector("[data-note]") as HTMLElement | null;
@@ -255,7 +285,10 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         const normalized = (raw || "").trim().toLowerCase();
         if (!normalized) return "ai";
         if (normalized === "style" || normalized === "styles" || normalized === "styling") return "markdown";
-        const availableTabs = new Set(["appearance", "markdown", "ai", "mcp", "server", "instructions", "extension"]);
+        const availableTabs = new Set([
+            "appearance", "markdown", "ai", "mcp", "server", "instructions", "extension",
+            ...contributedTabIds()
+        ]);
         return availableTabs.has(normalized) ? normalized : "ai";
     };
 
@@ -449,6 +482,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             renderMcpConfigurations(mcpSection, Array.isArray(s?.ai?.mcp) ? s.ai.mcp : []);
             applyAirpadRuntimeFromAppSettings(s);
             applyTheme(s);
+            applyContributions(root, s, contributionCtx);
             opts.onTheme?.(((s?.appearance?.theme as string) || "auto") as "auto" | "light" | "dark");
         })
         .catch(() => {
@@ -731,6 +765,13 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                     }
                 },
             };
+            // Fold contributed panels (reader/workcenter/airpad/extensions) into
+            // the settings object before persisting.
+            collectContributions(root, next as AppSettings, contributionCtx);
+            await resolveCwspSettingsBeforeSave(next as AppSettings);
+            if (next.core?.endpointUrl?.trim()) {
+                next.core.endpointUrl = await resolveConnectHostToOrigin(next.core.endpointUrl.trim());
+            }
             const saved = await saveSettings(next);
             void import("shared/transport/hub-socket-boot").then((m) => m.applyHubSocketFromSettings(saved));
             applyTheme(saved);

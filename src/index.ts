@@ -16,6 +16,16 @@ import { SettingsChannelAction } from "views/apis/channel-actions";
 import settingsStyles from "./scss/Settings.scss?inline";
 import { createSettingsView } from "./ts/Settings";
 
+// COMPAT: legacy minimal shell (`channel-unknown.ts`) and the view-factory
+// resolver (`registry.ts`) look up `module.createSettingsView`. Re-export it so
+// `import("views/settings").createSettingsView(...)` keeps working.
+export { createSettingsView } from "./ts/Settings";
+export {
+    registerSettingsContribution,
+    getSettingsContributions,
+    type SettingsContribution
+} from "com/config/SettingsContributions";
+
 // ============================================================================
 // SETTINGS TYPES
 // ============================================================================
