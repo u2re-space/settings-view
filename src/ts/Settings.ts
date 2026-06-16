@@ -1,6 +1,5 @@
 import { H } from "fest/lure";
-import { isEnabledView } from "core/routing/core/views";
-import { loadSettings, saveSettings } from "com/config/Settings";
+import { loadSettings, saveSettings, getLastSettingsSaveReport, ensureCapacitorCwspSettingsSeeded } from "com/config/Settings";
 import { BUILTIN_AI_MODELS, type AppSettings, type CoreMode } from "com/config/SettingsTypes";
 import { openAdminDoorFromCore, resolveAdminDoorUrls } from "com/config/admin-doors";
 import { sendMessage } from "com/core/UnifiedMessaging";
@@ -29,7 +28,7 @@ import { createMcpSection } from "../sections/SettingsMcp";
 import { createServerSection } from "../sections/SettingsServer";
 import { createInstructionsSection } from "../sections/SettingsInstructions";
 import { createExtensionSection } from "../sections/SettingsExtension";
-import type { SettingsContributionContext } from "../../../shared/src/other/config/SettingsContributions";
+import type { SettingsContributionContext } from "com/config/SettingsContributions";
 import {
     mountContributions,
     applyContributions,
@@ -37,9 +36,14 @@ import {
     resolveCwspSettingsBeforeSave,
     contributedTabIds,
     registerBuiltinSettingsContributions,
-    resolveSettingsSurface
+    resolveSettingsSurface,
+    resolveSettingsShellProfile,
+    pruneBuiltInSettingsTabs,
+    defaultSettingsTabForProfile,
+    hasBuiltInSettingsPanel
 } from "./settings-contributions";
-import { resolveConnectHostToOrigin } from "cwsp-shared/cwsp-endpoint-resolve";
+import { requestCapacitorSettingsPermissionsAfterSave } from "boot/capacitor-settings-permissions";
+import { attachSettingsInlineStylesWhenConnected } from "./settings-styles-attach";
 
 export type SettingsViewOptions = {
     isExtension: boolean;
@@ -49,13 +53,33 @@ export type SettingsViewOptions = {
 
 export const createSettingsView = (opts: SettingsViewOptions) => {
     let note: HTMLElement | null = null;
-    const setNote = (text: string) => {
+    let noteTimer: ReturnType<typeof setTimeout> | null = null;
+    const noteClearMs = () => {
+        const surface = resolveSettingsSurface();
+        return surface === "capacitor" || surface === "native" ? 8000 : 2500;
+    };
+    const setNote = (text: string, opts?: { persist?: boolean; tone?: "ok" | "warn" | "err" }) => {
         if (!note) return;
+        if (noteTimer) {
+            clearTimeout(noteTimer);
+            noteTimer = null;
+        }
         note.textContent = text;
-        if (text) setTimeout(() => (note && (note.textContent = "")), 1500);
+        note.classList.remove("note--ok", "note--warn", "note--err");
+        if (opts?.tone === "ok") note.classList.add("note--ok");
+        if (opts?.tone === "warn") note.classList.add("note--warn");
+        if (opts?.tone === "err") note.classList.add("note--err");
+        if (text && !opts?.persist) {
+            noteTimer = setTimeout(() => {
+                if (note) {
+                    note.textContent = "";
+                    note.classList.remove("note--ok", "note--warn", "note--err");
+                }
+            }, noteClearMs());
+        }
     };
 
-    const root = H`<div class="view-settings">
+    const root = H`<div class="view-settings" data-view="settings">
     ${createSettingsHeader()}
     <div class="settings-screen__body">
       ${createAppearanceSection()}
@@ -69,6 +93,8 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
     ${createSettingsFooter()}
   </div>` as HTMLElement;
 
+    attachSettingsInlineStylesWhenConnected(root);
+
     // Contributed settings: each view/shell can add its own tab + panel. Mount
     // them now (before tab click handlers are wired below) so they behave like
     // built-in tabs and persist generically through load/save.
@@ -77,15 +103,21 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         isExtension: opts.isExtension,
         surface: resolveSettingsSurface()
     };
+    const settingsProfile = resolveSettingsShellProfile(contributionCtx);
     mountContributions(root, contributionCtx);
 
-    // The built-in Markdown section is owned by the markdown viewer. Drop its
-    // tab + panel when `viewer` isn't enabled (e.g. CWSAndroid AirPad+Settings),
-    // so there are no orphan view settings.
-    if (!isEnabledView("viewer")) {
-        root.querySelector('[data-tab-panel="markdown"]')?.remove();
-        root.querySelector('[data-action="switch-settings-tab"][data-tab="markdown"]')?.remove();
+    pruneBuiltInSettingsTabs(root, settingsProfile);
+
+    // Full desktop host: CWSP tab replaces Server on Capacitor; cwsp-mobile already dropped Server.
+    if (
+        settingsProfile === "full" &&
+        (contributionCtx.surface === "capacitor" || contributionCtx.surface === "native")
+    ) {
+        root.querySelector('[data-tab-panel="server"]')?.remove();
+        root.querySelector('[data-action="switch-settings-tab"][data-tab="server"]')?.remove();
     }
+
+    const hasPanel = (panelId: string) => hasBuiltInSettingsPanel(root, panelId);
 
     const field = (sel: string) => root.querySelector(sel) as HTMLInputElement | HTMLSelectElement | null;
     note = root.querySelector("[data-note]") as HTMLElement | null;
@@ -248,7 +280,12 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
     });
 
     const switchSettingsTab = (tab: string) => {
-        const nextTab = tab || "ai";
+        const fallback = defaultSettingsTabForProfile(settingsProfile);
+        let nextTab = tab || fallback;
+        if (!root.querySelector(`[data-tab-panel="${nextTab}"]`)) {
+            const first = root.querySelector<HTMLElement>("[data-tab-panel]");
+            nextTab = first?.getAttribute("data-tab-panel") || fallback;
+        }
         const tabRoot = root.querySelector('[data-settings-tabs]') as HTMLElement | null;
         tabRoot?.setAttribute("data-active-tab", nextTab);
 
@@ -264,10 +301,14 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         for (const panel of Array.from(panels)) {
             const el = panel as HTMLElement;
             const isActive = el.getAttribute("data-tab-panel") === nextTab;
-            /* Extension panel starts `hidden` until `isExtension`; must activate when shown. */
-            if (isActive) el.hidden = false;
+            if (isActive) {
+                el.removeAttribute("hidden");
+            } else {
+                el.hidden = true;
+            }
             el.classList.toggle("is-active", isActive);
         }
+        attachSettingsInlineStylesWhenConnected(root);
     };
 
     /* Direct handlers: tab strip sits under shell shadow / CRX options UI; delegation misses some hits. */
@@ -277,19 +318,28 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         tabEl.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
-            switchSettingsTab(tabEl.getAttribute("data-tab") || "ai");
+            switchSettingsTab(tabEl.getAttribute("data-tab") || defaultSettingsTabForProfile(settingsProfile));
         });
     }
 
     const resolveInitialTab = (raw?: string): string => {
+        const fallback = defaultSettingsTabForProfile(settingsProfile);
         const normalized = (raw || "").trim().toLowerCase();
-        if (!normalized) return "ai";
-        if (normalized === "style" || normalized === "styles" || normalized === "styling") return "markdown";
+        if (!normalized) return fallback;
+        if (normalized === "style" || normalized === "styles" || normalized === "styling") {
+            return hasPanel("markdown") ? "markdown" : fallback;
+        }
         const availableTabs = new Set([
-            "appearance", "markdown", "ai", "mcp", "server", "instructions", "extension",
-            ...contributedTabIds()
+            ...(hasPanel("appearance") ? ["appearance"] : []),
+            ...(hasPanel("markdown") ? ["markdown"] : []),
+            ...(hasPanel("ai") ? ["ai"] : []),
+            ...(hasPanel("mcp") ? ["mcp"] : []),
+            ...(hasPanel("server") ? ["server"] : []),
+            ...(hasPanel("instructions") ? ["instructions"] : []),
+            ...(hasPanel("extension") ? ["extension"] : []),
+            ...contributedTabIds(contributionCtx)
         ]);
-        return availableTabs.has(normalized) ? normalized : "ai";
+        return availableTabs.has(normalized) ? normalized : fallback;
     };
 
     const buildCoreSnapshotForAdminPreview = (): AppSettings["core"] => ({
@@ -347,7 +397,14 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         }
     };
 
-    void Promise.resolve(loadSettings()).then((s) => {
+    const loadSettingsForView = async () => {
+        if (contributionCtx.surface === "capacitor" || contributionCtx.surface === "native") {
+            await ensureCapacitorCwspSettingsSeeded().catch(() => null);
+        }
+        return loadSettings();
+    };
+
+    void Promise.resolve(loadSettingsForView()).then((s) => {
             if (apiUrl) apiUrl.value = (s?.ai?.baseUrl || "").trim();
             if (apiKey) apiKey.value = (s?.ai?.apiKey || "").trim();
             const savedModel = (s?.ai?.model || "gpt-5.4").trim();
@@ -600,9 +657,10 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         if (!btn) return;
 
         void (async () => {
+            setNote("Saving…", { tone: "warn" });
             const current = await loadSettings();
-            let parsedMarkdownExtensions: any[] = [];
-            const rawExtensions = markdownExtensions?.value?.trim() || "";
+            let parsedMarkdownExtensions: any[] = current.appearance?.markdown?.extensions || [];
+            const rawExtensions = hasPanel("markdown") ? (markdownExtensions?.value?.trim() || "") : "";
             if (rawExtensions) {
                 try {
                     const parsed = JSON.parse(rawExtensions);
@@ -616,176 +674,213 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             }
 
             const next: AppSettings = {
-                ai: {
-                    baseUrl: apiUrl?.value?.trim?.() || "",
-                    apiKey: apiKey?.value?.trim?.() || "",
-                    model: (model?.value || "gpt-5.4") as any,
-                    customModel: model?.value === "custom" ? (customModel?.value?.trim?.() || "") : "",
-                    defaultReasoningEffort: (defaultReasoningEffort?.value as any) || "medium",
-                    defaultVerbosity: (defaultVerbosity?.value as any) || "medium",
-                    maxOutputTokens: parseNumberOrDefault(maxOutputTokens?.value, 400000),
-                    contextTruncation: (contextTruncation?.value as any) || "disabled",
-                    promptCacheRetention: (promptCacheRetention?.value as any) || "in-memory",
-                    maxToolCalls: parseNumberOrDefault(maxToolCalls?.value, 8),
-                    parallelToolCalls: (parallelToolCalls?.checked ?? true) !== false,
-                    requestTimeout: {
-                        low: parseNumberOrDefault(requestTimeoutLow?.value, 60000),
-                        medium: parseNumberOrDefault(requestTimeoutMedium?.value, 300000),
-                        high: parseNumberOrDefault(requestTimeoutHigh?.value, 900000),
-                    },
-                    maxRetries: parseNumberOrDefault(maxRetries?.value, 2),
-                    shareTargetMode: (mode?.value as any) || "recognize",
-                    autoProcessShared: (autoProcessShared?.checked ?? true) !== false,
-                    responseLanguage: (responseLanguage?.value as any) || "auto",
-                    translateResults: Boolean(translateResults?.checked),
-                    generateSvgGraphics: Boolean(generateSvgGraphics?.checked),
-                    mcp: collectMcpConfigurations(mcpSection),
-                },
-                speech: {
-                    language: (speechLanguage?.value as any) || "en-US",
-                },
-                core: {
-                    ...current.core,
-                    ntpEnabled: readCheckboxValue(ntpEnabled, Boolean(current.core?.ntpEnabled)),
-                    mode: (readTrimmedControlValue(coreMode, (current.core?.mode || "native") as string) || "native") as CoreMode,
-                    endpointUrl: readTrimmedControlValue(coreEndpointUrl, current.core?.endpointUrl || ""),
-                    userId: readTrimmedControlValue(coreUserId, current.core?.userId || ""),
-                    userKey: readTrimmedControlValue(coreUserKey, current.core?.userKey || ""),
-                    encrypt: readCheckboxValue(coreEncrypt, Boolean(current.core?.encrypt)),
-                    preferBackendSync: readCheckboxValue(corePreferBackendSync, (current.core?.preferBackendSync ?? true) !== false),
-                    appClientId: readTrimmedControlValue(coreAppClientId, current.core?.appClientId || ""),
-                    allowInsecureTls: readCheckboxValue(coreAllowInsecureTls, Boolean(current.core?.allowInsecureTls)),
-                    useCoreIdentityForAirPad: readCheckboxValue(coreUseCoreIdentityAirpad, (current.core?.useCoreIdentityForAirPad ?? true) !== false),
-                    socket: (() => {
-                        const prev = { ...(current.core?.socket || {}) };
-                        delete (prev as { airpadAuthToken?: string }).airpadAuthToken;
-                        return {
-                            ...prev,
-                            accessToken: readTrimmedControlValue(
-                                coreSocketAccessToken,
-                                current.core?.socket?.accessToken || current.core?.socket?.airpadAuthToken || ""
-                            ),
-                            routeTarget: readTrimmedControlValue(coreSocketRouteTarget, current.core?.socket?.routeTarget || ""),
-                            selfId: "",
-                            clientAccessToken: readTrimmedControlValue(
-                                coreSocketClientAccessToken,
-                                current.core?.socket?.clientAccessToken || ""
-                            ),
-                            allowAccessTokenWithoutUserKey: readCheckboxValue(
-                                coreSocketAllowAccessWithoutUserKey,
-                                Boolean(current.core?.socket?.allowAccessTokenWithoutUserKey)
-                            ),
-                        };
-                    })(),
-                    admin: {
-                        ...(current.core?.admin || {}),
-                        httpsOrigin: readTrimmedControlValue(coreAdminHttps, current.core?.admin?.httpsOrigin || ""),
-                        httpOrigin: readTrimmedControlValue(coreAdminHttp, current.core?.admin?.httpOrigin || ""),
-                        path: readTrimmedControlValue(coreAdminPath, current.core?.admin?.path || "/") || "/",
-                    },
-                    ops: {
-                        ...(current.core?.ops || {}),
-                        allowUnencrypted: readCheckboxValue(coreOpsAllowUnencrypted, Boolean(current.core?.ops?.allowUnencrypted)),
-                    },
-                },
-                shell: {
-                    ...(current.shell || {}),
-                    maintainHubSocketConnection: readCheckboxValue(shellMaintainHubSocket, Boolean(current.shell?.maintainHubSocketConnection)),
-                    clipboardBroadcastTargets: readTrimmedControlValue(
-                        shellClipboardBroadcastTargets,
-                        current.shell?.clipboardBroadcastTargets || ""
-                    ),
-                    pushLocalClipboardToLan: readCheckboxValue(
-                        shellPushLocalClipboard,
-                        Boolean(current.shell?.pushLocalClipboardToLan)
-                    ),
-                    clipboardPushIntervalMs: (() => {
-                        const raw = shellClipboardPushIntervalMs?.value;
-                        const n = parseNumberOrDefault(raw, current.shell?.clipboardPushIntervalMs ?? 2000);
-                        return Math.min(60000, Math.max(800, Math.round(n)));
-                    })(),
-                    enableRemoteClipboardBridge: readCheckboxValue(shellClipboard, (current.shell?.enableRemoteClipboardBridge ?? true) !== false),
-                    acceptInboundClipboardData: readCheckboxValue(
-                        shellAcceptInboundClipboard,
-                        (current.shell?.acceptInboundClipboardData ?? true) !== false
-                    ),
-                    clipboardInboundAllowIds: readTrimmedControlValue(
-                        shellClipboardInboundAllowIds,
-                        current.shell?.clipboardInboundAllowIds || ""
-                    ),
-                    accessTokenBypassesClipboardAllowlist: readCheckboxValue(
-                        shellAccessTokenBypassClipboardAllow,
-                        Boolean(current.shell?.accessTokenBypassesClipboardAllowlist)
-                    ),
-                    clipboardShareDestinationIds: readTrimmedControlValue(
-                        shellClipboardShareDestIds,
-                        current.shell?.clipboardShareDestinationIds || ""
-                    ),
-                    applyRemoteClipboardToDevice: readCheckboxValue(shellApplyRemoteDevice, (current.shell?.applyRemoteClipboardToDevice ?? true) !== false),
-                    acceptContactsBridgeData: readCheckboxValue(
-                        shellAcceptContactsBridge,
-                        Boolean(current.shell?.acceptContactsBridgeData)
-                    ),
-                    acceptSmsBridgeData: readCheckboxValue(shellAcceptSmsBridge, Boolean(current.shell?.acceptSmsBridgeData)),
-                    enableNativeSms: readCheckboxValue(shellSms, (current.shell?.enableNativeSms ?? true) !== false),
-                    enableNativeContacts: readCheckboxValue(shellContacts, (current.shell?.enableNativeContacts ?? true) !== false),
-                },
-                appearance: {
-                    theme: (theme?.value as any) || "auto",
-                    fontSize: (fontSize?.value as any) || "medium",
-                    markdown: {
-                        preset: (markdownPreset?.value as any) || "default",
-                        fontFamily: (markdownFontFamily?.value as any) || "system",
-                        fontSizePx: parseNumberOrDefault(markdownFontSizePx?.value, 16),
-                        lineHeight: parseFloatInRange(markdownLineHeight?.value, 1.7, 1.1, 2.2),
-                        contentMaxWidthPx: parseNumberOrDefault(markdownContentMaxWidthPx?.value, 860),
-                        printScale: parseFloatInRange(markdownPrintScale?.value, 1, 0.5, 1.5),
-                        page: {
-                            size: (markdownPageSize?.value as any) || "auto",
-                            orientation: (markdownPageOrientation?.value as any) || "portrait",
-                            marginMm: parseNumberOrDefault(markdownPageMarginMm?.value, 12),
-                        },
-                        modules: {
-                            typography: (markdownModuleTypography?.checked ?? true) !== false,
-                            lists: (markdownModuleLists?.checked ?? true) !== false,
-                            tables: (markdownModuleTables?.checked ?? true) !== false,
-                            codeBlocks: (markdownModuleCodeBlocks?.checked ?? true) !== false,
-                            blockquotes: (markdownModuleBlockquotes?.checked ?? true) !== false,
-                            media: (markdownModuleMedia?.checked ?? true) !== false,
-                            printBreaks: (markdownModulePrintBreaks?.checked ?? true) !== false,
-                        },
-                        plugins: {
-                            smartTypography: Boolean(markdownPluginSmartTypography?.checked),
-                            softBreaksAsBr: Boolean(markdownPluginSoftBreaks?.checked),
-                            externalLinksNewTab: (markdownPluginExternalLinks?.checked ?? true) !== false
-                        },
-                        customCss: markdownCustomCss?.value || "",
-                        printCss: markdownPrintCss?.value || "",
-                        extensions: parsedMarkdownExtensions || []
-                    }
-                },
+                ...(current as AppSettings),
+                ai: hasPanel("ai")
+                    ? {
+                          baseUrl: apiUrl?.value?.trim?.() || "",
+                          apiKey: apiKey?.value?.trim?.() || "",
+                          model: (model?.value || "gpt-5.4") as any,
+                          customModel: model?.value === "custom" ? (customModel?.value?.trim?.() || "") : "",
+                          defaultReasoningEffort: (defaultReasoningEffort?.value as any) || "medium",
+                          defaultVerbosity: (defaultVerbosity?.value as any) || "medium",
+                          maxOutputTokens: parseNumberOrDefault(maxOutputTokens?.value, 400000),
+                          contextTruncation: (contextTruncation?.value as any) || "disabled",
+                          promptCacheRetention: (promptCacheRetention?.value as any) || "in-memory",
+                          maxToolCalls: parseNumberOrDefault(maxToolCalls?.value, 8),
+                          parallelToolCalls: (parallelToolCalls?.checked ?? true) !== false,
+                          requestTimeout: {
+                              low: parseNumberOrDefault(requestTimeoutLow?.value, 60000),
+                              medium: parseNumberOrDefault(requestTimeoutMedium?.value, 300000),
+                              high: parseNumberOrDefault(requestTimeoutHigh?.value, 900000),
+                          },
+                          maxRetries: parseNumberOrDefault(maxRetries?.value, 2),
+                          shareTargetMode: (mode?.value as any) || "recognize",
+                          autoProcessShared: (autoProcessShared?.checked ?? true) !== false,
+                          responseLanguage: (responseLanguage?.value as any) || "auto",
+                          translateResults: Boolean(translateResults?.checked),
+                          generateSvgGraphics: Boolean(generateSvgGraphics?.checked),
+                          mcp: hasPanel("mcp") ? collectMcpConfigurations(mcpSection) : (current.ai?.mcp || []),
+                          customInstructions: current.ai?.customInstructions || [],
+                          activeInstructionId: current.ai?.activeInstructionId || "",
+                      }
+                    : (current.ai || {}),
+                speech: hasPanel("ai")
+                    ? { language: (speechLanguage?.value as any) || "en-US" }
+                    : (current.speech || {}),
+                core: hasPanel("server")
+                    ? {
+                          ...current.core,
+                          ntpEnabled: readCheckboxValue(ntpEnabled, Boolean(current.core?.ntpEnabled)),
+                          mode: (readTrimmedControlValue(coreMode, (current.core?.mode || "native") as string) || "native") as CoreMode,
+                          endpointUrl: readTrimmedControlValue(coreEndpointUrl, current.core?.endpointUrl || ""),
+                          userId: readTrimmedControlValue(coreUserId, current.core?.userId || ""),
+                          userKey: readTrimmedControlValue(coreUserKey, current.core?.userKey || ""),
+                          encrypt: readCheckboxValue(coreEncrypt, Boolean(current.core?.encrypt)),
+                          preferBackendSync: readCheckboxValue(corePreferBackendSync, (current.core?.preferBackendSync ?? true) !== false),
+                          appClientId: readTrimmedControlValue(coreAppClientId, current.core?.appClientId || ""),
+                          allowInsecureTls: readCheckboxValue(coreAllowInsecureTls, Boolean(current.core?.allowInsecureTls)),
+                          useCoreIdentityForAirPad: readCheckboxValue(coreUseCoreIdentityAirpad, (current.core?.useCoreIdentityForAirPad ?? true) !== false),
+                          socket: (() => {
+                              const prev = { ...(current.core?.socket || {}) };
+                              delete (prev as { airpadAuthToken?: string }).airpadAuthToken;
+                              return {
+                                  ...prev,
+                                  accessToken: readTrimmedControlValue(
+                                      coreSocketAccessToken,
+                                      current.core?.socket?.accessToken || current.core?.socket?.airpadAuthToken || ""
+                                  ),
+                                  routeTarget: readTrimmedControlValue(coreSocketRouteTarget, current.core?.socket?.routeTarget || ""),
+                                  selfId: "",
+                                  clientAccessToken: readTrimmedControlValue(
+                                      coreSocketClientAccessToken,
+                                      current.core?.socket?.clientAccessToken || ""
+                                  ),
+                                  allowAccessTokenWithoutUserKey: readCheckboxValue(
+                                      coreSocketAllowAccessWithoutUserKey,
+                                      Boolean(current.core?.socket?.allowAccessTokenWithoutUserKey)
+                                  ),
+                              };
+                          })(),
+                          admin: {
+                              ...(current.core?.admin || {}),
+                              httpsOrigin: readTrimmedControlValue(coreAdminHttps, current.core?.admin?.httpsOrigin || ""),
+                              httpOrigin: readTrimmedControlValue(coreAdminHttp, current.core?.admin?.httpOrigin || ""),
+                              path: readTrimmedControlValue(coreAdminPath, current.core?.admin?.path || "/") || "/",
+                          },
+                          ops: {
+                              ...(current.core?.ops || {}),
+                              allowUnencrypted: readCheckboxValue(coreOpsAllowUnencrypted, Boolean(current.core?.ops?.allowUnencrypted)),
+                          },
+                      }
+                    : { ...(current.core || {}) },
+                shell: hasPanel("server")
+                    ? {
+                          ...(current.shell || {}),
+                          maintainHubSocketConnection: readCheckboxValue(shellMaintainHubSocket, Boolean(current.shell?.maintainHubSocketConnection)),
+                          clipboardBroadcastTargets: readTrimmedControlValue(
+                              shellClipboardBroadcastTargets,
+                              current.shell?.clipboardBroadcastTargets || ""
+                          ),
+                          pushLocalClipboardToLan: readCheckboxValue(
+                              shellPushLocalClipboard,
+                              Boolean(current.shell?.pushLocalClipboardToLan)
+                          ),
+                          clipboardPushIntervalMs: (() => {
+                              const raw = shellClipboardPushIntervalMs?.value;
+                              const n = parseNumberOrDefault(raw, current.shell?.clipboardPushIntervalMs ?? 2000);
+                              return Math.min(60000, Math.max(800, Math.round(n)));
+                          })(),
+                          enableRemoteClipboardBridge: readCheckboxValue(shellClipboard, (current.shell?.enableRemoteClipboardBridge ?? true) !== false),
+                          acceptInboundClipboardData: readCheckboxValue(
+                              shellAcceptInboundClipboard,
+                              (current.shell?.acceptInboundClipboardData ?? true) !== false
+                          ),
+                          clipboardInboundAllowIds: readTrimmedControlValue(
+                              shellClipboardInboundAllowIds,
+                              current.shell?.clipboardInboundAllowIds || ""
+                          ),
+                          accessTokenBypassesClipboardAllowlist: readCheckboxValue(
+                              shellAccessTokenBypassClipboardAllow,
+                              Boolean(current.shell?.accessTokenBypassesClipboardAllowlist)
+                          ),
+                          clipboardShareDestinationIds: readTrimmedControlValue(
+                              shellClipboardShareDestIds,
+                              current.shell?.clipboardShareDestinationIds || ""
+                          ),
+                          applyRemoteClipboardToDevice: readCheckboxValue(shellApplyRemoteDevice, (current.shell?.applyRemoteClipboardToDevice ?? true) !== false),
+                          acceptContactsBridgeData: readCheckboxValue(
+                              shellAcceptContactsBridge,
+                              Boolean(current.shell?.acceptContactsBridgeData)
+                          ),
+                          acceptSmsBridgeData: readCheckboxValue(shellAcceptSmsBridge, Boolean(current.shell?.acceptSmsBridgeData)),
+                          enableNativeSms: readCheckboxValue(shellSms, (current.shell?.enableNativeSms ?? true) !== false),
+                          enableNativeContacts: readCheckboxValue(shellContacts, (current.shell?.enableNativeContacts ?? true) !== false),
+                      }
+                    : { ...(current.shell || {}) },
+                appearance:
+                    hasPanel("appearance") || hasPanel("markdown")
+                        ? {
+                              theme: (theme?.value as any) || "auto",
+                              fontSize: (fontSize?.value as any) || "medium",
+                              markdown: {
+                                  preset: (markdownPreset?.value as any) || "default",
+                                  fontFamily: (markdownFontFamily?.value as any) || "system",
+                                  fontSizePx: parseNumberOrDefault(markdownFontSizePx?.value, 16),
+                                  lineHeight: parseFloatInRange(markdownLineHeight?.value, 1.7, 1.1, 2.2),
+                                  contentMaxWidthPx: parseNumberOrDefault(markdownContentMaxWidthPx?.value, 860),
+                                  printScale: parseFloatInRange(markdownPrintScale?.value, 1, 0.5, 1.5),
+                                  page: {
+                                      size: (markdownPageSize?.value as any) || "auto",
+                                      orientation: (markdownPageOrientation?.value as any) || "portrait",
+                                      marginMm: parseNumberOrDefault(markdownPageMarginMm?.value, 12),
+                                  },
+                                  modules: {
+                                      typography: (markdownModuleTypography?.checked ?? true) !== false,
+                                      lists: (markdownModuleLists?.checked ?? true) !== false,
+                                      tables: (markdownModuleTables?.checked ?? true) !== false,
+                                      codeBlocks: (markdownModuleCodeBlocks?.checked ?? true) !== false,
+                                      blockquotes: (markdownModuleBlockquotes?.checked ?? true) !== false,
+                                      media: (markdownModuleMedia?.checked ?? true) !== false,
+                                      printBreaks: (markdownModulePrintBreaks?.checked ?? true) !== false,
+                                  },
+                                  plugins: {
+                                      smartTypography: Boolean(markdownPluginSmartTypography?.checked),
+                                      softBreaksAsBr: Boolean(markdownPluginSoftBreaks?.checked),
+                                      externalLinksNewTab: (markdownPluginExternalLinks?.checked ?? true) !== false
+                                  },
+                                  customCss: markdownCustomCss?.value || "",
+                                  printCss: markdownPrintCss?.value || "",
+                                  extensions: parsedMarkdownExtensions || []
+                              }
+                          }
+                        : (current.appearance || {}),
             };
             // Fold contributed panels (reader/workcenter/airpad/extensions) into
             // the settings object before persisting.
             collectContributions(root, next as AppSettings, contributionCtx);
             await resolveCwspSettingsBeforeSave(next as AppSettings);
-            if (next.core?.endpointUrl?.trim()) {
-                try {
-                    next.core.endpointUrl = await resolveConnectHostToOrigin(next.core.endpointUrl.trim());
-                } catch (err) {
-                    console.warn("[Settings] endpoint URL resolve skipped:", err);
-                }
-            }
-            const saved = await saveSettings(next);
+            const settingsToSave = next as AppSettings;
+            const onNative =
+                contributionCtx.surface === "capacitor" || contributionCtx.surface === "native";
+            // WHY: Do not block Android permission dialogs on IDB write + native settings:patch.
+            const permPromise = onNative
+                ? requestCapacitorSettingsPermissionsAfterSave(settingsToSave).catch((e) => {
+                      console.warn("[Settings] native permission flow failed:", e);
+                      return { lines: [] as string[], results: [] };
+                  })
+                : Promise.resolve({ lines: [] as string[], results: [] });
+
+            const saved = await saveSettings(settingsToSave);
             if (!saved) {
-                setNote("Settings save returned no data.");
+                setNote("Settings save returned no data.", { tone: "err" });
                 return;
             }
+            applyContributions(root, saved, contributionCtx);
+
+            const report = getLastSettingsSaveReport();
+            const permReport = await permPromise;
+            const permLines = permReport.lines;
+            const permDenied = permReport.results.some((r) => r.granted === false);
+
             void import("shared/transport/hub-socket-boot").then((m) => m.applyHubSocketFromSettings(saved));
             applyTheme(saved);
             opts.onTheme?.((saved.appearance?.theme as any) || "auto");
-            setNote("Saved.");
-        })().catch((err) => setNote(String(err)));
+
+            const parts: string[] = ["Saved locally"];
+            if (report.nativeSynced === true) {
+                parts.push("synced to Android");
+            } else if (report.nativeSynced === false && !permDenied) {
+                // WHY: Local IDB + permissions OK — avoid red footer when native patch is best-effort.
+                console.warn("[Settings] native settings patch:", report.nativeError || "not confirmed");
+            } else if (report.nativeSynced === false) {
+                parts.push(`native sync failed${report.nativeError ? `: ${report.nativeError}` : ""}`);
+            }
+            if (permLines.length) parts.push(...permLines);
+
+            let tone: "ok" | "warn" | "err" = "ok";
+            if (permDenied) tone = "warn";
+            setNote(parts.join(" · "), { tone });
+        })().catch((err) => setNote(String(err), { tone: "err" }));
     });
 
     if (opts.isExtension) {
@@ -795,8 +890,41 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         root.append(extNote);
     }
 
-    switchSettingsTab(resolveInitialTab(opts.initialTab));
+    const initialTab = resolveInitialTab(opts.initialTab);
+    switchSettingsTab(initialTab);
+    if (!root.querySelector(`[data-tab-panel="${initialTab}"]:not([hidden])`)) {
+        const firstPanel = root.querySelector<HTMLElement>("[data-tab-panel]");
+        if (firstPanel) switchSettingsTab(firstPanel.getAttribute("data-tab-panel") || initialTab);
+    }
     syncCustomModelVisibility();
+
+    const panelCount = root.querySelectorAll("[data-tab-panel]").length;
+    const tabCount = root.querySelectorAll('[data-action="switch-settings-tab"][data-tab]').length;
+    try {
+        const dbg = (globalThis as { __CWSP_FRONTEND_DEBUG__?: { log: (...a: unknown[]) => void } })
+            .__CWSP_FRONTEND_DEBUG__;
+        dbg?.log(
+            "settings-view",
+            "info",
+            `mounted profile=${settingsProfile} surface=${contributionCtx.surface} tabs=${tabCount} panels=${panelCount} active=${root.querySelector("[data-settings-tabs]")?.getAttribute("data-active-tab")}`
+        );
+    } catch {
+        /* ignore */
+    }
+    if (panelCount === 0) {
+        const empty = document.createElement("section");
+        empty.className = "card settings-tab-panel";
+        empty.setAttribute("data-tab-panel", "cwsp");
+        empty.innerHTML =
+            "<h3>CWSP</h3><p class=\"field-hint\">Settings panels failed to mount. Check logcat tag CwspWebView or __CWSP_FRONTEND_DEBUG__.tail().</p>";
+        root.querySelector(".settings-screen__body")?.appendChild(empty);
+        switchSettingsTab("cwsp");
+    }
+
+    root.addEventListener("cwsp-settings-resync", () => {
+        attachSettingsInlineStylesWhenConnected(root);
+        switchSettingsTab(root.querySelector("[data-settings-tabs]")?.getAttribute("data-active-tab") || initialTab);
+    });
 
     return root;
 };

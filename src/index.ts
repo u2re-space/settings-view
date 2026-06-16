@@ -7,13 +7,12 @@
 
 import { H } from "fest/lure";
 import { ref } from "fest/object";
-import { loadAsAdopted, removeAdopted } from "fest/dom";
+import { removeAdopted } from "fest/dom";
 import type { View, ViewOptions, ViewLifecycle, ShellContext } from "shells/types";
 import type { BaseViewOptions } from "views/types";
 import { SettingsChannelAction } from "views/apis/channel-actions";
 
-// @ts-ignore
-import settingsStyles from "./scss/Settings.scss?inline";
+import { attachSettingsInlineStyles, attachSettingsInlineStylesWhenConnected } from "./ts/settings-styles-attach";
 import { createSettingsView } from "./ts/Settings";
 
 // COMPAT: legacy minimal shell (`channel-unknown.ts`) and the view-factory
@@ -24,7 +23,15 @@ export {
     registerSettingsContribution,
     getSettingsContributions,
     type SettingsContribution
-} from "../../shared/src/other/config/SettingsContributions";
+} from "com/config/SettingsContributions";
+export {
+    registerBuiltinSettingsContributions,
+    registerAirpadSettingsContribution,
+    registerCwspSettingsContribution,
+    registerWorkcenterSettingsContribution,
+    registerReaderSettingsContribution,
+    registerDeviceSettingsContribution
+} from "./ts/settings-contributions";
 
 // ============================================================================
 // SETTINGS TYPES
@@ -89,9 +96,10 @@ export class SettingsView implements View {
         },
         onShow: () => {
             this.applySettingsStylesheet();
+            this.element?.dispatchEvent(new CustomEvent("cwsp-settings-resync", { bubbles: false }));
         },
         onHide: () => {
-            this.clearSettingsStylesheet();
+            /* WHY: Keep inline Settings.scss on cached view roots — clearing on hide blanked Capacitor APK. */
         },
     };
 
@@ -225,6 +233,8 @@ export class SettingsView implements View {
             }
         });
 
+        queueMicrotask(() => attachSettingsInlineStylesWhenConnected(this.element));
+
         return this.element;
     }
 
@@ -277,44 +287,21 @@ export class SettingsView implements View {
     }
 
     private applySettingsStylesheet(): void {
-        if (this._sheet || this._shadowSheet || this._styleEl) return;
-        const el = this.element;
-        if (!el?.isConnected) return;
-
-        const css = String(settingsStyles || "");
-        const root = el.getRootNode();
-
-        if (root instanceof ShadowRoot) {
-            try {
-                const sheet = new CSSStyleSheet();
-                sheet.replaceSync(css);
-                root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
-                this._shadowSheet = { sheet, root };
-            } catch (e) {
-                console.warn("[SettingsView] Shadow stylesheet adoption failed; using <style> fallback", e);
-                const s = document.createElement("style");
-                s.setAttribute("data-settings-view-css", "");
-                s.textContent = css;
-                root.appendChild(s);
-                this._styleEl = s;
-            }
-        } else {
-            this._sheet = loadAsAdopted(settingsStyles) as CSSStyleSheet;
-        }
+        attachSettingsInlineStylesWhenConnected(this.element);
     }
 
     private clearSettingsStylesheet(): void {
         try {
+            const el = this.element;
+            el?.querySelector("style[data-settings-view-css]")?.remove();
             if (this._styleEl) {
                 this._styleEl.remove();
                 this._styleEl = null;
-                return;
             }
             if (this._shadowSheet) {
                 const { sheet, root } = this._shadowSheet;
                 root.adoptedStyleSheets = root.adoptedStyleSheets.filter((s) => s !== sheet);
                 this._shadowSheet = null;
-                return;
             }
             if (this._sheet) {
                 removeAdopted(this._sheet);

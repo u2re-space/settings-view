@@ -28,7 +28,16 @@
                 "../../projects/subsystem/src/routing/api/channel-actions.ts"
             ],
             "com/config/Settings": [
-                "../../shared/runtime/settings-config.ts"
+                "../../projects/subsystem/src/other/config/Settings.ts"
+            ],
+            "com/config/SettingsTypes": [
+                "../../projects/subsystem/src/other/config/SettingsTypes.ts"
+            ],
+            "com/config/settings/register-builtin-contributions": [
+                "../../projects/subsystem/src/other/config/settings/register-builtin-contributions.ts"
+            ],
+            "com/config/settings/settings-shell-profile": [
+                "../../projects/subsystem/src/other/config/settings/settings-shell-profile.ts"
             ],
             "fest/*": [
                 "../../shared/fest/*"
