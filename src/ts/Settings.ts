@@ -770,9 +770,17 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             collectContributions(root, next as AppSettings, contributionCtx);
             await resolveCwspSettingsBeforeSave(next as AppSettings);
             if (next.core?.endpointUrl?.trim()) {
-                next.core.endpointUrl = await resolveConnectHostToOrigin(next.core.endpointUrl.trim());
+                try {
+                    next.core.endpointUrl = await resolveConnectHostToOrigin(next.core.endpointUrl.trim());
+                } catch (err) {
+                    console.warn("[Settings] endpoint URL resolve skipped:", err);
+                }
             }
             const saved = await saveSettings(next);
+            if (!saved) {
+                setNote("Settings save returned no data.");
+                return;
+            }
             void import("shared/transport/hub-socket-boot").then((m) => m.applyHubSocketFromSettings(saved));
             applyTheme(saved);
             opts.onTheme?.((saved.appearance?.theme as any) || "auto");
