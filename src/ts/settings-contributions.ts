@@ -1,7 +1,7 @@
 /**
  * Settings-view glue for the shared contribution registry.
  *
- * Renders registered contributions (`com/config/SettingsContributions`) as
+ * Renders registered contributions from the shared settings registry as
  * extra tabs + panels inside the settings UI and bridges their load/save to
  * `AppSettings`. Built-in, view-owned panels (reader / workcenter / airpad …)
  * declare `requiresView` so a build that omits the view (e.g. the CWSAndroid
@@ -21,7 +21,7 @@ import {
     collectContributionFields,
     type SettingsContribution,
     type SettingsContributionContext
-} from "com/config/SettingsContributions";
+} from "../../../shared/src/other/config/SettingsContributions";
 import { resolveCwspUrlFields } from "cwsp-shared/cwsp-endpoint-resolve";
 
 const TAB_LIST_SELECTOR = "[data-settings-tabs]";
@@ -210,7 +210,7 @@ export const registerBuiltinSettingsContributions = (): void => {
             check("Share / context-menu broadcasts", "cwsp.shareBroadcast"),
             check("Reverse (listener) mode", "cwsp.reverseServerMode"),
             "Transport",
-            select("Wire transport", "cwsp.wireTransport", [["ws", "Native WebSocket (/ws)"], ["socket.io", "Socket.IO (compat)"]]),
+            select("Wire transport", "cwsp.wireTransport", [["ws", "Native WebSocket (/ws)"]]),
             select("Connection role", "cwsp.connectionRole", [["initiator", "Initiator (connect-to)"], ["listener", "Listener (connected-from)"], ["exchanger", "Exchanger (both)"]])
         ])
     });
@@ -263,7 +263,7 @@ export const registerBuiltinSettingsContributions = (): void => {
                 check("Foreground daemon", "cwsp.ns.bridgeDaemonEnabled"),
                 check("Clipboard monitor (overlay)", "cwsp.ns.clipboardMonitor"),
                 check("Native AirPad input (touch/tilt)", "cwsp.ns.nativeAirpad"),
-                select("NS transport", "cwsp.ns.transport", [["ws", "Native WebSocket"], ["socket.io", "Socket.IO"]]),
+                select("NS transport", "cwsp.ns.transport", [["ws", "Native WebSocket (/ws)"]]),
                 select("NS role", "cwsp.ns.role", [["initiator", "Initiator"], ["listener", "Listener"], ["exchanger", "Exchanger"]]),
                 check("Accept contacts data (future)", "cwsp.ns.acceptContactsData"),
                 check("Accept SMS data (future)", "cwsp.ns.acceptSmsData")

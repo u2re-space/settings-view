@@ -24,7 +24,7 @@ export {
     registerSettingsContribution,
     getSettingsContributions,
     type SettingsContribution
-} from "com/config/SettingsContributions";
+} from "../../shared/src/other/config/SettingsContributions";
 
 // ============================================================================
 // SETTINGS TYPES

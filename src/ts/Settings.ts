@@ -29,7 +29,7 @@ import { createMcpSection } from "../sections/SettingsMcp";
 import { createServerSection } from "../sections/SettingsServer";
 import { createInstructionsSection } from "../sections/SettingsInstructions";
 import { createExtensionSection } from "../sections/SettingsExtension";
-import type { SettingsContributionContext } from "com/config/SettingsContributions";
+import type { SettingsContributionContext } from "../../../shared/src/other/config/SettingsContributions";
 import {
     mountContributions,
     applyContributions,
