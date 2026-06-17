@@ -100,7 +100,7 @@ var de = (e) => !!ae[e] && ue(e), fe = [
 		useCoreIdentityForAirPad: !0,
 		allowInsecureTls: !1,
 		network: {
-			listenPortHttps: 8443,
+			listenPortHttps: 8434,
 			listenPortHttp: 8080,
 			bridgeEnabled: !0,
 			reconnectMs: 3e3,
@@ -127,7 +127,7 @@ var de = (e) => !!ae[e] && ue(e), fe = [
 			preferNativeWebsocket: !0
 		},
 		admin: {
-			httpsOrigin: "https://localhost:8443",
+			httpsOrigin: "https://localhost:8434",
 			httpOrigin: "http://localhost:8080",
 			path: "/"
 		},
@@ -435,7 +435,7 @@ var b = [
 	7443,
 	9443,
 	18443,
-	8443,
+	8434,
 	8444,
 	8445,
 	443
@@ -593,7 +593,7 @@ var b = [
 	if (!t || globalThis.location === void 0 || !globalThis.location.hostname) return t;
 	try {
 		let e = /^[a-z][a-z0-9+.-]*:\/\//i.test(t) ? t : `https://${t}`, n = new URL(e.endsWith("/") ? e : `${e.replace(/\/+$/, "")}/`), r = globalThis.location;
-		if (n.hostname === r.hostname && n.protocol === "https:" && n.port === "8443" && r.protocol === "https:" && (r.port === "" || r.port === "443")) return T(r.origin);
+		if (n.hostname === r.hostname && n.protocol === "https:" && n.port === "8434" && r.protocol === "https:" && (r.port === "" || r.port === "443")) return T(r.origin);
 	} catch {}
 	return t;
 };
@@ -1087,7 +1087,7 @@ var Ge = [
         <span>Server URL</span>
         <input class="form-input" type="text" inputmode="url" autocomplete="off" placeholder="192.168.0.200" data-field="core.endpointUrl" />
       </label>
-      <p class="field-hint">IP or domain only — port and protocol are auto-discovered (8443, 443, 8080, …).</p>
+      <p class="field-hint">IP or domain only — port and protocol are auto-discovered (8434, 443, 8080, …).</p>
       <label class="field">
         <span>Associated device / client ID</span>
         <input class="form-input" type="text" autocomplete="off" data-field="core.userId" placeholder="L-192.168.0.196" />
@@ -1909,7 +1909,7 @@ var wt = () => `ci_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, Tt 
 			$("Connect to the CWSP endpoint; outbound clipboard/AirPad fan-out and inbound clipboard policy below."),
 			"Connection",
 			Z("Relay host (IP or domain)", "cwsp.relayHttpsUrl", "192.168.0.200"),
-			$("Coordinator / gateway. Port is auto-discovered (8443, 443, 8080, …) when omitted."),
+			$("Coordinator / gateway. Port is auto-discovered (8434, 443, 8080, …) when omitted."),
 			Z("Direct host (IP or domain)", "cwsp.directHttpsUrl", "192.168.0.110"),
 			$("Direct AirPad target. Omit https:// — protocol and port are resolved automatically."),
 			Z("Client id", "cwsp.clientId", "L-192.168.0.196"),

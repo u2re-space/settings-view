@@ -12,7 +12,7 @@ export const createServerSection = () => H`<section class="card settings-tab-pan
         <span>Server URL</span>
         <input class="form-input" type="text" inputmode="url" autocomplete="off" placeholder="192.168.0.200" data-field="core.endpointUrl" />
       </label>
-      <p class="field-hint">IP or domain only — port and protocol are auto-discovered (8443, 443, 8080, …).</p>
+      <p class="field-hint">IP or domain only — port and protocol are auto-discovered (8434, 443, 8080, …).</p>
       <label class="field">
         <span>Associated device / client ID</span>
         <input class="form-input" type="text" autocomplete="off" data-field="core.userId" placeholder="L-192.168.0.196" />
