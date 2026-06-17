@@ -87,6 +87,8 @@
             "core/*": ["../shared/src/*"],
             "com/*": ["../shared/src/*"],
             "shared/*": ["../shared/src/*"],
+            "cwsp-shared/*": ["../../projects/cwsp-shared/src/*"],
+            "fest/cwsp-shared": ["../../projects/cwsp-shared/src/index.ts"],
             "@shared/*": ["../shared/*"],
             "fonts/*": ["../shared/assets/fonts/*"],
             "shells/immersive/index": ["../../shells/immersive-shell/src/index.ts"],
