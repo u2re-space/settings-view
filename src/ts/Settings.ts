@@ -200,6 +200,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
     const coreEndpointUrl = field('[data-field="core.endpointUrl"]') as HTMLInputElement | null;
     const coreUserId = field('[data-field="core.userId"]') as HTMLInputElement | null;
     const coreUserKey = field('[data-field="core.userKey"]') as HTMLInputElement | null;
+    const coreEcosystemToken = field('[data-field="core.ecosystemToken"]') as HTMLInputElement | null;
     const corePreferBackendSync = field('[data-field="core.preferBackendSync"]') as HTMLInputElement | null;
     const coreEncrypt = field('[data-field="core.encrypt"]') as HTMLInputElement | null;
     const coreAppClientId = field('[data-field="core.appClientId"]') as HTMLInputElement | null;
@@ -342,18 +343,25 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         return availableTabs.has(normalized) ? normalized : fallback;
     };
 
-    const buildCoreSnapshotForAdminPreview = (): AppSettings["core"] => ({
+    const buildCoreSnapshotForAdminPreview = (): AppSettings["core"] => {
+        const eco =
+            coreEcosystemToken?.value?.trim() ||
+            coreUserKey?.value?.trim() ||
+            coreSocketAccessToken?.value?.trim() ||
+            "";
+        return {
         mode: ((coreMode?.value as CoreMode) || "native") as CoreMode,
         endpointUrl: coreEndpointUrl?.value?.trim() || "",
         userId: coreUserId?.value?.trim() || "",
-        userKey: coreUserKey?.value?.trim() || "",
+        ecosystemToken: eco,
+        userKey: eco,
         encrypt: Boolean(coreEncrypt?.checked),
         preferBackendSync: (corePreferBackendSync?.checked ?? true) !== false,
         appClientId: coreAppClientId?.value?.trim() || "",
         allowInsecureTls: Boolean(coreAllowInsecureTls?.checked),
         useCoreIdentityForAirPad: (coreUseCoreIdentityAirpad?.checked ?? true) !== false,
         socket: {
-            accessToken: coreSocketAccessToken?.value?.trim() || "",
+            accessToken: eco,
             routeTarget: coreSocketRouteTarget?.value?.trim() || "",
             selfId: "",
             clientAccessToken: coreSocketClientAccessToken?.value?.trim() || "",
@@ -367,7 +375,8 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         ops: {
             allowUnencrypted: Boolean(coreOpsAllowUnencrypted?.checked),
         },
-    });
+    };
+    };
 
     const refreshAdminDoorPreview = () => {
         if (!adminPreview) return;
@@ -472,16 +481,19 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             if (coreMode) coreMode.value = (s?.core?.mode || "native") as string;
             if (coreEndpointUrl) coreEndpointUrl.value = (s?.core?.endpointUrl || "").trim();
             if (coreUserId) coreUserId.value = (s?.core?.userId || "").trim();
-            if (coreUserKey) coreUserKey.value = (s?.core?.userKey || "").trim();
+            {
+                const eco =
+                    String(s?.core?.ecosystemToken || "").trim() ||
+                    String(s?.core?.userKey || "").trim() ||
+                    String(s?.core?.socket?.accessToken || s?.core?.socket?.airpadAuthToken || "").trim();
+                if (coreEcosystemToken) coreEcosystemToken.value = eco;
+                if (coreUserKey) coreUserKey.value = eco;
+                if (coreSocketAccessToken) coreSocketAccessToken.value = eco;
+            }
             if (corePreferBackendSync) corePreferBackendSync.checked = (s?.core?.preferBackendSync ?? true) !== false;
             if (coreEncrypt) coreEncrypt.checked = Boolean(s?.core?.encrypt);
             if (coreAppClientId) coreAppClientId.value = (s?.core?.appClientId || "").trim();
             if (coreUseCoreIdentityAirpad) coreUseCoreIdentityAirpad.checked = (s?.core?.useCoreIdentityForAirPad ?? true) !== false;
-            if (coreSocketAccessToken) {
-                coreSocketAccessToken.value = (
-                    (s?.core?.socket?.accessToken || s?.core?.socket?.airpadAuthToken || "") as string
-                ).trim();
-            }
             if (coreSocketRouteTarget) {
                 coreSocketRouteTarget.value = (
                     (s?.core?.socket?.routeTarget || s?.core?.socket?.selfId || "") as string
@@ -714,7 +726,38 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                           mode: (readTrimmedControlValue(coreMode, (current.core?.mode || "native") as string) || "native") as CoreMode,
                           endpointUrl: readTrimmedControlValue(coreEndpointUrl, current.core?.endpointUrl || ""),
                           userId: readTrimmedControlValue(coreUserId, current.core?.userId || ""),
-                          userKey: readTrimmedControlValue(coreUserKey, current.core?.userKey || ""),
+                          ecosystemToken: (() => {
+                              const eco =
+                                  readTrimmedControlValue(
+                                      coreEcosystemToken,
+                                      current.core?.ecosystemToken ||
+                                          current.core?.userKey ||
+                                          current.core?.socket?.accessToken ||
+                                          ""
+                                  ) ||
+                                  readTrimmedControlValue(coreUserKey, current.core?.userKey || "") ||
+                                  readTrimmedControlValue(
+                                      coreSocketAccessToken,
+                                      current.core?.socket?.accessToken || current.core?.socket?.airpadAuthToken || ""
+                                  );
+                              return eco;
+                          })(),
+                          userKey: (() => {
+                              const eco =
+                                  readTrimmedControlValue(
+                                      coreEcosystemToken,
+                                      current.core?.ecosystemToken ||
+                                          current.core?.userKey ||
+                                          current.core?.socket?.accessToken ||
+                                          ""
+                                  ) ||
+                                  readTrimmedControlValue(coreUserKey, current.core?.userKey || "") ||
+                                  readTrimmedControlValue(
+                                      coreSocketAccessToken,
+                                      current.core?.socket?.accessToken || current.core?.socket?.airpadAuthToken || ""
+                                  );
+                              return eco;
+                          })(),
                           encrypt: readCheckboxValue(coreEncrypt, Boolean(current.core?.encrypt)),
                           preferBackendSync: readCheckboxValue(corePreferBackendSync, (current.core?.preferBackendSync ?? true) !== false),
                           appClientId: readTrimmedControlValue(coreAppClientId, current.core?.appClientId || ""),
@@ -723,12 +766,22 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                           socket: (() => {
                               const prev = { ...(current.core?.socket || {}) };
                               delete (prev as { airpadAuthToken?: string }).airpadAuthToken;
-                              return {
-                                  ...prev,
-                                  accessToken: readTrimmedControlValue(
+                              const eco =
+                                  readTrimmedControlValue(
+                                      coreEcosystemToken,
+                                      current.core?.ecosystemToken ||
+                                          current.core?.userKey ||
+                                          current.core?.socket?.accessToken ||
+                                          ""
+                                  ) ||
+                                  readTrimmedControlValue(coreUserKey, current.core?.userKey || "") ||
+                                  readTrimmedControlValue(
                                       coreSocketAccessToken,
                                       current.core?.socket?.accessToken || current.core?.socket?.airpadAuthToken || ""
-                                  ),
+                                  );
+                              return {
+                                  ...prev,
+                                  accessToken: eco,
                                   routeTarget: readTrimmedControlValue(coreSocketRouteTarget, current.core?.socket?.routeTarget || ""),
                                   selfId: "",
                                   clientAccessToken: readTrimmedControlValue(

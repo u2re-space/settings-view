@@ -8,6 +8,7 @@
  * Settings-view glue: mount shared contribution registry tabs into the host UI.
  */
 import type { AppSettings } from "com/config/SettingsTypes";
+import { normalizeEcosystemToken } from "com/config/SettingsTypes";
 import { isEnabledView } from "core/routing/core/views";
 import {
     getSettingsContributions,
@@ -209,6 +210,7 @@ const isCapacitorNativeShell = (): boolean => {
 
 /** Resolve bare host/IP fields in `core.endpointUrl` / `core.ops.directUrl` before persist. */
 export const resolveCwspSettingsBeforeSave = async (settings: AppSettings): Promise<void> => {
+    normalizeEcosystemToken(settings);
     const core = settings.core;
     if (!core || typeof core !== "object") return;
     const relay = typeof core.endpointUrl === "string" ? core.endpointUrl : "";
