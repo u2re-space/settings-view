@@ -1,3 +1,9 @@
+/*
+ * Filename: settings-contributions.ts
+ * FullPath: modules/views/settings-view/src/ts/settings-contributions.ts
+ * Change date and time: 16.35.00_10.07.2026
+ * Reason for changes: Pass-II — hydrate/persist helpers bridging contributions ↔ settings:get/patch.
+ */
 /**
  * Settings-view glue: mount shared contribution registry tabs into the host UI.
  */
@@ -12,6 +18,11 @@ import {
 } from "com/config/SettingsContributions";
 import { registerBuiltinSettingsContributions } from "com/config/settings/register-builtin-contributions";
 import { resolveCwspUrlFields } from "cwsp-shared/cwsp-endpoint-resolve";
+import {
+    getSettingsSync,
+    patchSettingsSync,
+    type SettingsBlob
+} from "./settings-sync-adapter";
 
 export { registerBuiltinSettingsContributions };
 export {
@@ -147,6 +158,41 @@ export const collectContributions = (
             console.warn(`[settings] contribution '${contribution.id}' save failed:`, error);
         }
     });
+};
+
+/**
+ * settings:get → applyContributions — hydrate contributed panels from the registered sync arm.
+ *
+ * NOTE: returns the merged blob used for binding so callers can keep a local settings copy
+ * without a second get. When no arm is registered, `base` is applied unchanged.
+ */
+export const hydrateContributionsFromSync = async (
+    root: HTMLElement,
+    ctx: SettingsContributionContext,
+    base: AppSettings = {} as AppSettings
+): Promise<AppSettings> => {
+    const remote = await getSettingsSync();
+    const settings = {
+        ...(base as SettingsBlob),
+        ...remote
+    } as AppSettings;
+    applyContributions(root, settings, ctx);
+    return settings;
+};
+
+/**
+ * collectContributions → settings:patch — persist contributed field values through the sync arm.
+ *
+ * INVARIANT: callers pass the full settings object they intend to keep; the arm owns merge
+ * semantics (see `createMemorySettingsSyncArm` / platform backends).
+ */
+export const persistContributionsViaSync = async (
+    root: HTMLElement,
+    settings: AppSettings,
+    ctx: SettingsContributionContext
+): Promise<SettingsBlob> => {
+    collectContributions(root, settings, ctx);
+    return patchSettingsSync(settings as SettingsBlob);
 };
 
 export const contributedTabIds = (ctx: SettingsContributionContext): string[] =>

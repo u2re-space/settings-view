@@ -17,10 +17,13 @@
  * belong to the registered arm; this layer returns whatever the arm returns.
  */
 import assert from "node:assert/strict";
-import test from "node:test";
-
+import test, { afterEach } from "node:test";
 import {
     registerSettingsSyncArm,
+    unregisterSettingsSyncArm,
+    clearSettingsSyncArms,
+    createMemorySettingsSyncArm,
+    mergeSettingsPatch,
     resolveSettingsSyncArm,
     detectSettingsSurface,
     setSurfaceDetector,
@@ -36,6 +39,11 @@ import {
 // `node --test` runs each test file in an isolated worker. Default-detector
 // heuristics live in settings-surface-detection.test.ts so this file can use
 // the public override without contaminating those assertions.
+
+afterEach(() => {
+    clearSettingsSyncArms();
+    setSurfaceDetector(() => "web");
+});
 
 // ---------------------------------------------------------------------------
 // 1. webnative settings:get / settings:patch arm registration + dispatch
@@ -234,4 +242,44 @@ test("SettingsSurface type includes webnative + web", () => {
     const s: SettingsSurface = "webnative";
     const w: SettingsSurface = "web";
     assert.ok(s && w);
+});
+
+// ---------------------------------------------------------------------------
+// Reference memory arm + Capacitor parity (get/patch persistence contract)
+// ---------------------------------------------------------------------------
+
+test("createMemorySettingsSyncArm persists get/patch for the capacitor surface", async () => {
+    setSurfaceDetector(() => "capacitor");
+    registerSettingsSyncArm(
+        "capacitor",
+        createMemorySettingsSyncArm({ core: { mode: "endpoint" } })
+    );
+
+    assert.deepEqual(await getSettingsSync(), { core: { mode: "endpoint" } });
+    const patched = await patchSettingsSync({ core: { bridge: { enabled: true } } });
+    assert.deepEqual(patched, {
+        core: { mode: "endpoint", bridge: { enabled: true } }
+    });
+    assert.deepEqual(await getSettingsSync(), patched);
+});
+
+test("mergeSettingsPatch keeps sibling keys when a nested object is patched", () => {
+    assert.deepEqual(
+        mergeSettingsPatch(
+            { core: { mode: "endpoint", ops: { logLevel: "info" } }, keep: true },
+            { core: { ops: { logLevel: "debug" } } }
+        ),
+        {
+            core: { mode: "endpoint", ops: { logLevel: "debug" } },
+            keep: true
+        }
+    );
+});
+
+test("unregisterSettingsSyncArm removes only the named surface", async () => {
+    setSurfaceDetector(() => "webnative");
+    registerSettingsSyncArm("webnative", createMemorySettingsSyncArm({ a: 1 }));
+    registerSettingsSyncArm("web", createMemorySettingsSyncArm({ a: 2 }));
+    unregisterSettingsSyncArm("webnative");
+    assert.deepEqual(await getSettingsSync(), { a: 2 }, "web fallback must remain");
 });

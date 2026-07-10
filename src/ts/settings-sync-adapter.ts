@@ -1,3 +1,10 @@
+/*
+ * Filename: settings-sync-adapter.ts
+ * FullPath: modules/views/settings-view/src/ts/settings-sync-adapter.ts
+ * Change date and time: 16.35.00_10.07.2026
+ * Reason for changes: Pass-II — memory arm + clear registry for get/patch persistence contract
+ *   (Capacitor / WebNative parity at the view-module boundary).
+ */
 /**
  * Settings-sync adapter — canonical contract + registry for cross-platform settings sync.
  *
@@ -20,6 +27,9 @@
  * Surface detection is pluggable: defaults to checking `globalThis` hints set by each shell
  * (`__CWS_WEBNATIVE_BOOT__` by the WebNative custom panel; the Capacitor bridge presence is
  * checked by the Capacitor shell when it registers its arm). Override via `setSurfaceDetector`.
+ *
+ * `createMemorySettingsSyncArm` is the reference get/patch persistence model used by contract
+ * tests and as a pure-web fallback when a shell has no native backend yet.
  */
 
 export type SettingsSurface = "capacitor" | "native" | "crx" | "webnative" | "web";
@@ -75,6 +85,66 @@ export function setSurfaceDetector(fn: () => SettingsSurface): void {
 /** Register a sync arm for a surface. Shells call this at bootstrap. */
 export function registerSettingsSyncArm(surface: SettingsSurface, arm: SettingsSyncArm): void {
     arms[surface] = arm;
+}
+
+/** Remove a previously registered arm (tests / shell teardown). */
+export function unregisterSettingsSyncArm(surface: SettingsSurface): void {
+    delete arms[surface];
+}
+
+/** Clear every registered arm (tests / shell teardown). */
+export function clearSettingsSyncArms(): void {
+    for (const key of Object.keys(arms) as SettingsSurface[]) {
+        delete arms[key];
+    }
+}
+
+/**
+ * One-level object merge used by the reference memory arm.
+ *
+ * INVARIANT: patching a nested object must not drop sibling keys already persisted
+ * (hidden / unsupported UI sections must not delete persisted values).
+ */
+export function mergeSettingsPatch(base: SettingsBlob, patch: SettingsPatch): SettingsBlob {
+    const out: SettingsBlob = { ...base };
+    for (const [key, value] of Object.entries(patch)) {
+        const prev = out[key];
+        if (
+            value !== null &&
+            typeof value === "object" &&
+            !Array.isArray(value) &&
+            prev !== null &&
+            typeof prev === "object" &&
+            !Array.isArray(prev)
+        ) {
+            out[key] = { ...(prev as SettingsBlob), ...(value as SettingsBlob) };
+        } else {
+            out[key] = value;
+        }
+    }
+    return out;
+}
+
+/**
+ * Reference in-memory `settings:get` / `settings:patch` arm.
+ *
+ * WHY: Capacitor and WebNative backends live above this package; contract tests and
+ * pure-web shells need a dependency-free persistence model that matches the merge
+ * invariant. Shells may register this as a temporary `web` fallback.
+ */
+export function createMemorySettingsSyncArm(
+    initial: SettingsBlob = {},
+    extras: Pick<SettingsSyncArm, "defaults" | "snapshot"> = {}
+): SettingsSyncArm {
+    let store: SettingsBlob = { ...initial };
+    return {
+        get: async () => ({ ...store }),
+        patch: async (patch) => {
+            store = mergeSettingsPatch(store, patch);
+            return { ...store };
+        },
+        ...extras
+    };
 }
 
 /** Current detected surface (exposed for diagnostics + arm selection). */

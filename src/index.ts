@@ -30,8 +30,32 @@ export {
     registerCwspSettingsContribution,
     registerWorkcenterSettingsContribution,
     registerReaderSettingsContribution,
-    registerDeviceSettingsContribution
+    registerDeviceSettingsContribution,
+    hydrateContributionsFromSync,
+    persistContributionsViaSync,
+    applyContributions,
+    collectContributions,
+    mountContributions,
+    resolveSettingsSurface
 } from "./ts/settings-contributions";
+export {
+    registerSettingsSyncArm,
+    unregisterSettingsSyncArm,
+    clearSettingsSyncArms,
+    createMemorySettingsSyncArm,
+    mergeSettingsPatch,
+    setSurfaceDetector,
+    detectSettingsSurface,
+    resolveSettingsSyncArm,
+    getSettingsSync,
+    patchSettingsSync,
+    getSettingsDefaults,
+    getSettingsSnapshot,
+    type SettingsSurface,
+    type SettingsBlob,
+    type SettingsPatch,
+    type SettingsSyncArm
+} from "./ts/settings-sync-adapter";
 
 // ============================================================================
 // SETTINGS TYPES

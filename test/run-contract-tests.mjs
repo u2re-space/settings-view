@@ -25,6 +25,7 @@ const testOnlyAliases = [{
 }];
 const testEntries = {
     "settings-contributions.test": resolve(root, "test/settings-contributions.test.ts"),
+    "settings-contribution-sync.test": resolve(root, "test/settings-contribution-sync.test.ts"),
     "settings-shell-profile.test": resolve(root, "test/settings-shell-profile.test.ts"),
     "settings-surface-detection.test": resolve(root, "test/settings-surface-detection.test.ts"),
     "settings-sync-adapter.test": resolve(root, "test/settings-sync-adapter.test.ts")
