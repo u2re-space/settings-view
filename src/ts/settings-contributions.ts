@@ -213,6 +213,10 @@ export const resolveCwspSettingsBeforeSave = async (settings: AppSettings): Prom
     normalizeEcosystemToken(settings);
     const core = settings.core;
     if (!core || typeof core !== "object") return;
+    // Prefer short Client-ID (L-196); collapse full L-192.168.0.196 if pasted.
+    const { sanitizeFleetSelfWireNodeId } = await import("cwsp-shared/airpad-cwsp-client-parity");
+    const canonicalUserId = sanitizeFleetSelfWireNodeId(core.userId);
+    if (canonicalUserId) core.userId = canonicalUserId;
     const relay = typeof core.endpointUrl === "string" ? core.endpointUrl : "";
     const direct = typeof core.ops?.directUrl === "string" ? core.ops.directUrl : "";
     if (!relay.trim() && !direct.trim()) return;

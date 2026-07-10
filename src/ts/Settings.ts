@@ -916,6 +916,15 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             const permDenied = permReport.results.some((r) => r.granted === false);
 
             void import("shared/transport/hub-socket-boot").then((m) => m.applyHubSocketFromSettings(saved));
+            // WHY: identity (clientId / token / endpoint) must re-handshake; hub boot may skip connectWS
+            // when maintainHubSocketConnection is off (default on Capacitor).
+            void import("shared/transport/websocket").then((m) => {
+                if (typeof m.reconnectTransportAfterLifecycleResume === "function") {
+                    m.reconnectTransportAfterLifecycleResume("settings-save");
+                }
+            }).catch(() => {
+                /* optional when WS module not loaded */
+            });
             applyTheme(saved);
             opts.onTheme?.((saved.appearance?.theme as any) || "auto");
 
