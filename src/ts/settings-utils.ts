@@ -66,7 +66,13 @@ export const readTrimmedControlValue = (
     control: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null | undefined,
     fallback = ""
 ): string => {
-    return control ? control.value.trim() : fallback;
+    if (!control) return fallback;
+    const value = control.value.trim();
+    // WHY: empty password inputs must not wipe stored secrets (browser clears them).
+    if (!value && control instanceof HTMLInputElement && control.type === "password") {
+        return fallback;
+    }
+    return value || fallback;
 };
 
 export const readCheckboxValue = (control: HTMLInputElement | null | undefined, fallback: boolean): boolean => {

@@ -937,10 +937,15 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             } else if (report.nativeSynced === false) {
                 parts.push(`native sync failed${report.nativeError ? `: ${report.nativeError}` : ""}`);
             }
+            if (report.webnativeSynced === true) {
+                parts.push("synced to Node backend");
+            } else if (report.webnativeSynced === false) {
+                parts.push(`Node sync failed${report.webnativeError ? `: ${report.webnativeError}` : ""}`);
+            }
             if (permLines.length) parts.push(...permLines);
 
             let tone: "ok" | "warn" | "err" = "ok";
-            if (permDenied) tone = "warn";
+            if (permDenied || report.webnativeSynced === false) tone = "warn";
             setNote(parts.join(" · "), { tone });
         })().catch((err) => setNote(String(err), { tone: "err" }));
     });
