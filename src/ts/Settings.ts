@@ -43,6 +43,7 @@ import {
     hasBuiltInSettingsPanel
 } from "./settings-contributions";
 import { requestCapacitorSettingsPermissionsAfterSave } from "boot/capacitor-settings-permissions";
+import { isCapacitorNative } from "boot/capacitor-permissions";
 import { attachSettingsInlineStylesWhenConnected } from "./settings-styles-attach";
 
 export type SettingsViewOptions = {
@@ -543,9 +544,15 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                 shellAcceptContactsBridge.checked = (s?.shell?.acceptContactsBridgeData ?? false) === true;
             }
             if (shellAcceptSmsBridge) {
-                shellAcceptSmsBridge.checked = (s?.shell?.acceptSmsBridgeData ?? false) === true;
+                shellAcceptSmsBridge.checked = isCapacitorNative()
+                    ? false
+                    : (s?.shell?.acceptSmsBridgeData ?? false) === true;
             }
-            if (shellSms) shellSms.checked = (s?.shell?.enableNativeSms ?? true) !== false;
+            if (shellSms) {
+                shellSms.checked = isCapacitorNative()
+                    ? false
+                    : (s?.shell?.enableNativeSms ?? false) === true;
+            }
             if (shellContacts) shellContacts.checked = (s?.shell?.enableNativeContacts ?? true) !== false;
             refreshAdminDoorPreview();
             renderMcpConfigurations(mcpSection, Array.isArray(s?.ai?.mcp) ? s.ai.mcp : []);
@@ -845,8 +852,13 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                               shellAcceptContactsBridge,
                               Boolean(current.shell?.acceptContactsBridgeData)
                           ),
-                          acceptSmsBridgeData: readCheckboxValue(shellAcceptSmsBridge, Boolean(current.shell?.acceptSmsBridgeData)),
-                          enableNativeSms: readCheckboxValue(shellSms, (current.shell?.enableNativeSms ?? true) !== false),
+                          // WHY: Capacitor never uses device SMS — keep settings valid without SMS perms.
+                          acceptSmsBridgeData: isCapacitorNative()
+                              ? false
+                              : readCheckboxValue(shellAcceptSmsBridge, Boolean(current.shell?.acceptSmsBridgeData)),
+                          enableNativeSms: isCapacitorNative()
+                              ? false
+                              : readCheckboxValue(shellSms, (current.shell?.enableNativeSms ?? false) === true),
                           enableNativeContacts: readCheckboxValue(shellContacts, (current.shell?.enableNativeContacts ?? true) !== false),
                       }
                     : { ...(current.shell || {}) },
