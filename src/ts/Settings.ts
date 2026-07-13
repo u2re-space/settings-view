@@ -964,8 +964,19 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                     }
                     return;
                 }
+                // WHY: Capacitor Java CwspBridgeService owns /ws — reconnect native, not WebView.
+                if (typeof m.nativeShellOwnsExclusiveHubWebsocket === "function"
+                    && m.nativeShellOwnsExclusiveHubWebsocket()) {
+                    try {
+                        const { invokeCwsNative } = await import("com/routing/native/cws-bridge");
+                        await invokeCwsNative("runtime:reload-settings", {});
+                    } catch (e) {
+                        console.warn("[Settings] Java /ws reload skipped", e);
+                    }
+                    return;
+                }
                 await m.applyHubSocketFromSettings(saved);
-                // WHY: identity must re-handshake on Capacitor/PWA only.
+                // WHY: identity must re-handshake on PWA only.
                 void import("shared/transport/websocket").then((ws) => {
                     if (typeof ws.reconnectTransportAfterLifecycleResume === "function") {
                         ws.reconnectTransportAfterLifecycleResume("settings-save");
