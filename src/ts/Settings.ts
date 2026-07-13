@@ -927,15 +927,50 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             const permLines = permReport.lines;
             const permDenied = permReport.results.some((r) => r.granted === false);
 
-            void import("shared/transport/hub-socket-boot").then((m) => m.applyHubSocketFromSettings(saved));
-            // WHY: identity (clientId / token / endpoint) must re-handshake; hub boot may skip connectWS
-            // when maintainHubSocketConnection is off (default on Capacitor).
-            void import("shared/transport/websocket").then((m) => {
-                if (typeof m.reconnectTransportAfterLifecycleResume === "function") {
-                    m.reconnectTransportAfterLifecycleResume("settings-save");
+            void import("shared/transport/hub-socket-boot").then(async (m) => {
+                // WHY: Neutralino Node clipboard-hub owns /ws — never reconnect browser WebSocket.
+                if (typeof m.nodeClipboardHubOwnsExclusiveWebsocket === "function"
+                    && m.nodeClipboardHubOwnsExclusiveWebsocket()) {
+                    try {
+                        const g = globalThis as unknown as {
+                            __WEBNATIVE_AUTH__?: { port?: number; key?: string };
+                            __NEUTRALINO_AUTH__?: { port?: number; key?: string };
+                        };
+                        const auth = g.__WEBNATIVE_AUTH__ || g.__NEUTRALINO_AUTH__;
+                        const port = Number(auth?.port) || 18765;
+                        const key = String(auth?.key || "cwsp-neutralino-local");
+                        const core = saved.core;
+                        const token = String(
+                            core?.ecosystemToken || core?.userKey || core?.socket?.accessToken || ""
+                        ).trim();
+                        const body: Record<string, string> = {};
+                        if (core?.endpointUrl) body.remoteHost = String(core.endpointUrl).trim();
+                        if (token) {
+                            body.accessToken = token;
+                            body.clientToken = token;
+                        }
+                        if (core?.userId) body.clientId = String(core.userId).trim();
+                        await fetch(`http://127.0.0.1:${port}/service/clipboard-hub`, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "X-API-Key": key
+                            },
+                            body: JSON.stringify(body),
+                            cache: "no-store"
+                        });
+                    } catch (e) {
+                        console.warn("[Settings] Node clipboard-hub reload skipped", e);
+                    }
+                    return;
                 }
-            }).catch(() => {
-                /* optional when WS module not loaded */
+                await m.applyHubSocketFromSettings(saved);
+                // WHY: identity must re-handshake on Capacitor/PWA only.
+                void import("shared/transport/websocket").then((ws) => {
+                    if (typeof ws.reconnectTransportAfterLifecycleResume === "function") {
+                        ws.reconnectTransportAfterLifecycleResume("settings-save");
+                    }
+                }).catch(() => undefined);
             });
             applyTheme(saved);
             opts.onTheme?.((saved.appearance?.theme as any) || "auto");
