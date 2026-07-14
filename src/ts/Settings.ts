@@ -937,7 +937,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                             __NEUTRALINO_AUTH__?: { port?: number; key?: string };
                         };
                         const auth = g.__WEBNATIVE_AUTH__ || g.__NEUTRALINO_AUTH__;
-                        const port = Number(auth?.port) || 18765;
+                        const port = Number(auth?.port) || 19875;
                         const key = String(auth?.key || "cwsp-neutralino-local");
                         const core = saved.core;
                         const token = String(
