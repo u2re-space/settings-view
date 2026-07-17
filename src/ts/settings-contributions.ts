@@ -1,8 +1,9 @@
 /*
  * Filename: settings-contributions.ts
  * FullPath: modules/views/settings-view/src/ts/settings-contributions.ts
- * Change date and time: 16.35.00_10.07.2026
- * Reason for changes: Pass-II — hydrate/persist helpers bridging contributions ↔ settings:get/patch.
+ * Change date and time: 14.46.00_17.07.2026
+ * Reason for changes: Merge registered settings:get blob into AppSettings so web/
+ *   gateway Settings fields prefill from the backend arm.
  */
 /**
  * Settings-view glue: mount shared contribution registry tabs into the host UI.
@@ -161,6 +162,47 @@ export const collectContributions = (
     });
 };
 
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+/**
+ * Deep-merge backend settings:get into local AppSettings for form prefill.
+ * INVARIANT: skip `[redacted]` placeholders so a redacted GET cannot wipe IDB values.
+ * Backend non-empty values win (gateway/webnative SoT after login).
+ */
+export const mergeSettingsFromSync = (base: AppSettings, remote: SettingsBlob): AppSettings => {
+    if (!isPlainObject(remote) || !Object.keys(remote).length) return base;
+
+    const mergeValue = (local: unknown, incoming: unknown): unknown => {
+        if (incoming === undefined || incoming === null) return local;
+        if (typeof incoming === "string" && incoming === "[redacted]") return local;
+        if (Array.isArray(incoming)) return incoming.slice();
+        if (isPlainObject(incoming) && isPlainObject(local)) {
+            const out: Record<string, unknown> = { ...local };
+            for (const [key, value] of Object.entries(incoming)) {
+                out[key] = mergeValue(local[key], value);
+            }
+            return out;
+        }
+        if (isPlainObject(incoming)) return { ...incoming };
+        if (typeof incoming === "string" && !incoming.trim() && typeof local === "string" && local.trim()) {
+            return local;
+        }
+        return incoming;
+    };
+
+    return mergeValue(base, remote) as AppSettings;
+};
+
+/** Load local settings then overlay the registered sync arm (gateway / webnative / …). */
+export const loadSettingsHydratedFromSync = async (
+    loadLocal: () => Promise<AppSettings>
+): Promise<AppSettings> => {
+    const local = await loadLocal();
+    const remote = await getSettingsSync();
+    return mergeSettingsFromSync(local, remote);
+};
+
 /**
  * settings:get → applyContributions — hydrate contributed panels from the registered sync arm.
  *
@@ -173,10 +215,7 @@ export const hydrateContributionsFromSync = async (
     base: AppSettings = {} as AppSettings
 ): Promise<AppSettings> => {
     const remote = await getSettingsSync();
-    const settings = {
-        ...(base as SettingsBlob),
-        ...remote
-    } as AppSettings;
+    const settings = mergeSettingsFromSync(base, remote);
     applyContributions(root, settings, ctx);
     return settings;
 };

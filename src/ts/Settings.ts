@@ -40,7 +40,9 @@ import {
     resolveSettingsShellProfile,
     pruneBuiltInSettingsTabs,
     defaultSettingsTabForProfile,
-    hasBuiltInSettingsPanel
+    hasBuiltInSettingsPanel,
+    loadSettingsHydratedFromSync,
+    persistContributionsViaSync
 } from "./settings-contributions";
 import { requestCapacitorSettingsPermissionsAfterSave } from "boot/capacitor-settings-permissions";
 import { isCapacitorNative } from "boot/capacitor-permissions";
@@ -411,7 +413,8 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         if (contributionCtx.surface === "capacitor" || contributionCtx.surface === "native") {
             await ensureCapacitorCwspSettingsSeeded().catch(() => null);
         }
-        return loadSettings();
+        // WHY: gateway/webnative register a settings:get arm — overlay so fields show backend SoT.
+        return loadSettingsHydratedFromSync(() => loadSettings());
     };
 
     void Promise.resolve(loadSettingsForView()).then((s) => {
@@ -919,6 +922,13 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             if (!saved) {
                 setNote("Settings save returned no data.", { tone: "err" });
                 return;
+            }
+            // WHY: push the same blob through settings:patch when a sync arm is registered
+            // (gateway BFF / webnative control) so reload prefills from backend.
+            try {
+                await persistContributionsViaSync(root, saved, contributionCtx);
+            } catch (e) {
+                console.warn("[Settings] backend settings:patch failed:", e);
             }
             applyContributions(root, saved, contributionCtx);
 
