@@ -947,19 +947,21 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                             __NEUTRALINO_AUTH__?: { port?: number; key?: string };
                         };
                         const auth = g.__WEBNATIVE_AUTH__ || g.__NEUTRALINO_AUTH__;
-                        const port = Number(auth?.port) || 19875;
+                        const port = Number(auth?.port) || 29110;
                         const key = String(auth?.key || "cwsp-neutralino-local");
                         const core = saved.core;
                         const token = String(
                             core?.ecosystemToken || core?.userKey || core?.socket?.accessToken || ""
                         ).trim();
-                        const body: Record<string, string> = {};
+                        const body: Record<string, string | boolean> = {};
                         if (core?.endpointUrl) body.remoteHost = String(core.endpointUrl).trim();
                         if (token) {
                             body.accessToken = token;
                             body.clientToken = token;
                         }
                         if (core?.userId) body.clientId = String(core.userId).trim();
+                        // WHY: intentional Save — force hub reload even if values match (user request).
+                        body.force = true;
                         await fetch(`http://127.0.0.1:${port}/service/clipboard-hub`, {
                             method: "POST",
                             headers: {
