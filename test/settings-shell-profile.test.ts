@@ -8,7 +8,7 @@
  * that this layer must keep stable across edits:
  *   - profile selection by surface (crx/extension → extension; capacitor/native
  *     without desktop views → cwsp-mobile; otherwise full)
- *   - pruneBuiltInSettingsTabs only mutates the cwsp-mobile profile
+ *   - pruneBuiltInSettingsTabs mutates cwsp-mobile and extension profiles
  *   - default tab per profile
  *   - hasBuiltInSettingsPanel is a pure DOM query
  *
@@ -97,8 +97,8 @@ test("defaultSettingsTabForProfile: cwsp-mobile → cwsp", () => {
     assert.equal(defaultSettingsTabForProfile("cwsp-mobile"), "cwsp");
 });
 
-test("defaultSettingsTabForProfile: extension → extension", () => {
-    assert.equal(defaultSettingsTabForProfile("extension"), "extension");
+test("defaultSettingsTabForProfile: extension → crx", () => {
+    assert.equal(defaultSettingsTabForProfile("extension"), "crx");
 });
 
 test("defaultSettingsTabForProfile: full → ai", () => {
@@ -116,11 +116,24 @@ test("pruneBuiltInSettingsTabs is a no-op for the full profile", () => {
     assert.equal(root.querySelectorAll("[data-tab-panel]").length, before);
 });
 
-test("pruneBuiltInSettingsTabs is a no-op for the extension profile", () => {
-    const root = buildRoot(["appearance", "ai", "extension"]);
-    const before = root.querySelectorAll("[data-tab-panel]").length;
+test("pruneBuiltInSettingsTabs removes built-in extension + server for the extension profile", () => {
+    const hidden = ["extension", "server"];
+    const kept = ["appearance", "ai", "crx", "cwsp"];
+    const root = buildRoot([...hidden, ...kept]);
+
     pruneBuiltInSettingsTabs(root, "extension");
-    assert.equal(root.querySelectorAll("[data-tab-panel]").length, before);
+
+    for (const id of hidden) {
+        assert.equal(root.querySelector(`[data-tab-panel="${id}"]`), null, `panel ${id} should be pruned`);
+        assert.equal(
+            root.querySelector(`[data-action="switch-settings-tab"][data-tab="${id}"]`),
+            null,
+            `tab ${id} should be pruned`
+        );
+    }
+    for (const id of kept) {
+        assert.ok(root.querySelector(`[data-tab-panel="${id}"]`), `panel ${id} must survive`);
+    }
 });
 
 test("pruneBuiltInSettingsTabs removes the cwsp-mobile hidden built-in tabs + their tab buttons", () => {
