@@ -953,11 +953,25 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                     && m.nodeClipboardHubOwnsExclusiveWebsocket()) {
                     try {
                         const g = globalThis as unknown as {
-                            __WEBNATIVE_AUTH__?: { port?: number; key?: string };
-                            __NEUTRALINO_AUTH__?: { port?: number; key?: string };
+                            __WEBNATIVE_AUTH__?: {
+                                port?: number;
+                                key?: string;
+                                host?: string;
+                            };
+                            __NEUTRALINO_AUTH__?: {
+                                port?: number;
+                                key?: string;
+                                host?: string;
+                            };
+                            __CWS_NODE_CLIPBOARD_HUB__?: boolean;
                         };
+                        // Capacitor Control API has no clipboard-hub — skip (was spamming 404/CORS).
+                        if (g.__CWS_NODE_CLIPBOARD_HUB__ === false) return;
                         const auth = g.__WEBNATIVE_AUTH__ || g.__NEUTRALINO_AUTH__;
                         const port = Number(auth?.port) || 29110;
+                        const host = String(auth?.host || "127.0.0.1").trim() || "127.0.0.1";
+                        if (port === 8434 && host !== "127.0.0.1" && host !== "localhost") return;
+                        if (port !== 29110) return;
                         const key = String(auth?.key || "cwsp-neutralino-local");
                         const core = saved.core;
                         const token = String(
@@ -972,7 +986,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                         if (core?.userId) body.clientId = String(core.userId).trim();
                         // WHY: intentional Save — force hub reload even if values match (user request).
                         body.force = true;
-                        await fetch(`http://127.0.0.1:${port}/service/clipboard-hub`, {
+                        await fetch(`http://${host}:${port}/service/clipboard-hub`, {
                             method: "POST",
                             headers: {
                                 "Content-Type": "application/json",

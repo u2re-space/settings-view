@@ -223,7 +223,10 @@ const remoteSettingsLooksUseful = (remote: SettingsBlob): boolean => {
     const core = remote.core as Record<string, unknown> | undefined;
     const shell = remote.shell as Record<string, unknown> | undefined;
     const bridge = remote.bridge as Record<string, unknown> | undefined;
+    const cwsp = remote.cwsp as Record<string, unknown> | undefined;
+    const control = remote.control as Record<string, unknown> | undefined;
     // WHY: ignore `{ neutralino: … }` shell-meta-only responses — those are not CWSP SoT.
+    // Capacitor Android Control API often has shell.* device flags without desktop bridge.* keys.
     return Boolean(
         (typeof core?.endpointUrl === "string" && core.endpointUrl.trim()) ||
             (typeof core?.userId === "string" && core.userId.trim()) ||
@@ -232,8 +235,15 @@ const remoteSettingsLooksUseful = (remote: SettingsBlob): boolean => {
             (typeof shell?.clipboardInboundMode === "string" && shell.clipboardInboundMode) ||
             (typeof shell?.clipboardOutboundMode === "string" && shell.clipboardOutboundMode) ||
             (typeof shell?.remoteHost === "string" && shell.remoteHost.trim()) ||
+            (typeof shell?.clientId === "string" && shell.clientId.trim()) ||
+            typeof shell?.allowControlApi === "boolean" ||
+            typeof shell?.bridgeDaemonEnabled === "boolean" ||
+            typeof shell?.autoStartOnBoot === "boolean" ||
             (typeof bridge?.endpointUrl === "string" && bridge.endpointUrl.trim()) ||
-            (typeof bridge?.userId === "string" && String(bridge.userId).trim())
+            (typeof bridge?.userId === "string" && String(bridge.userId).trim()) ||
+            (typeof cwsp?.clientId === "string" && String(cwsp.clientId).trim()) ||
+            (typeof cwsp?.endpointUrl === "string" && String(cwsp.endpointUrl).trim()) ||
+            control?.surface === "capacitor-android"
     );
 };
 
