@@ -1,9 +1,8 @@
 /*
  * Filename: settings-contributions.ts
  * FullPath: modules/views/settings-view/src/ts/settings-contributions.ts
- * Change date and time: 14.46.00_17.07.2026
- * Reason for changes: Merge registered settings:get blob into AppSettings so web/
- *   gateway Settings fields prefill from the backend arm.
+ * Change date and time: 14.25.00_19.07.2026
+ * Reason for changes: Neutralino/WebNative — retry settings:get so fields prefer backend SoT.
  */
 /**
  * Settings-view glue: mount shared contribution registry tabs into the host UI.
@@ -194,12 +193,65 @@ export const mergeSettingsFromSync = (base: AppSettings, remote: SettingsBlob): 
     return mergeValue(base, remote) as AppSettings;
 };
 
+const isDesktopSettingsSurface = (): boolean => {
+    try {
+        const g = globalThis as {
+            __CWS_WEBNATIVE_BOOT__?: boolean;
+            __CWS_NEUTRALINO_BOOT__?: boolean;
+            __WEBNATIVE_AUTH__?: { port?: number };
+            __NEUTRALINO_AUTH__?: { port?: number };
+        };
+        return Boolean(
+            g.__CWS_WEBNATIVE_BOOT__ ||
+                g.__CWS_NEUTRALINO_BOOT__ ||
+                typeof g.__WEBNATIVE_AUTH__?.port === "number" ||
+                typeof g.__NEUTRALINO_AUTH__?.port === "number"
+        );
+    } catch {
+        return false;
+    }
+};
+
+const remoteSettingsLooksUseful = (remote: SettingsBlob): boolean => {
+    if (!remote || typeof remote !== "object") return false;
+    const core = remote.core as Record<string, unknown> | undefined;
+    const shell = remote.shell as Record<string, unknown> | undefined;
+    const bridge = remote.bridge as Record<string, unknown> | undefined;
+    // WHY: ignore `{ neutralino: … }` shell-meta-only responses — those are not CWSP SoT.
+    return Boolean(
+        (typeof core?.endpointUrl === "string" && core.endpointUrl.trim()) ||
+            (typeof core?.userId === "string" && core.userId.trim()) ||
+            (typeof core?.ecosystemToken === "string" && core.ecosystemToken.trim()) ||
+            (typeof core?.userKey === "string" && core.userKey.trim()) ||
+            (typeof shell?.clipboardInboundMode === "string" && shell.clipboardInboundMode) ||
+            (typeof shell?.clipboardOutboundMode === "string" && shell.clipboardOutboundMode) ||
+            (typeof shell?.remoteHost === "string" && shell.remoteHost.trim()) ||
+            (typeof bridge?.endpointUrl === "string" && bridge.endpointUrl.trim()) ||
+            (typeof bridge?.userId === "string" && String(bridge.userId).trim())
+    );
+};
+
 /** Load local settings then overlay the registered sync arm (gateway / webnative / …). */
 export const loadSettingsHydratedFromSync = async (
     loadLocal: () => Promise<AppSettings>
 ): Promise<AppSettings> => {
     const local = await loadLocal();
-    const remote = await getSettingsSync();
+    // WHY: preferBackendSync=false keeps Settings on IDB/local only (operator override).
+    if ((local.core?.preferBackendSync ?? true) === false) {
+        return local;
+    }
+
+    let remote = await getSettingsSync();
+    // WHY: Neutralino control host often warms after first Settings paint — retry so
+    // fields bind to portable.config (backend) instead of stale localStorage/IDB.
+    if (isDesktopSettingsSurface() && !remoteSettingsLooksUseful(remote)) {
+        for (let i = 0; i < 6; i++) {
+            await new Promise((r) => setTimeout(r, 250));
+            remote = await getSettingsSync();
+            if (remoteSettingsLooksUseful(remote)) break;
+        }
+    }
+
     return mergeSettingsFromSync(local, remote);
 };
 

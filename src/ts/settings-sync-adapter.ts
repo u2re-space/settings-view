@@ -68,10 +68,12 @@ let surfaceDetector: () => SettingsSurface = detectSurfaceDefault;
 function detectSurfaceDefault(): SettingsSurface {
     const g = globalThis as unknown as {
         __CWS_WEBNATIVE_BOOT__?: boolean;
+        __CWS_NEUTRALINO_BOOT__?: boolean;
         Capacitor?: unknown;
         chrome?: { runtime?: unknown };
     };
-    if (g.__CWS_WEBNATIVE_BOOT__) return "webnative";
+    // WHY: Neutralino marks both boots; either means the webnative sync arm owns SoT.
+    if (g.__CWS_WEBNATIVE_BOOT__ || g.__CWS_NEUTRALINO_BOOT__) return "webnative";
     if (typeof g.Capacitor !== "undefined") return "capacitor";
     if (typeof g.chrome !== "undefined" && g.chrome?.runtime) return "crx";
     return "web";

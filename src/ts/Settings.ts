@@ -413,14 +413,14 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         if (contributionCtx.surface === "capacitor" || contributionCtx.surface === "native") {
             await ensureCapacitorCwspSettingsSeeded().catch(() => null);
         }
-        // WHY: gateway/webnative register a settings:get arm — overlay so fields show backend SoT.
+        // WHY: Neutralino/WebNative/gateway register settings:get — backend (portable) wins over IDB.
         return loadSettingsHydratedFromSync(() => loadSettings());
     };
 
     void Promise.resolve(loadSettingsForView()).then((s) => {
             if (apiUrl) apiUrl.value = (s?.ai?.baseUrl || "").trim();
             if (apiKey) apiKey.value = (s?.ai?.apiKey || "").trim();
-            const savedModel = (s?.ai?.model || "gpt-5.4").trim();
+            const savedModel = (s?.ai?.model || "gpt-5.6-luna").trim();
             const savedCustomModel = (s?.ai?.customModel || "").trim();
             if (model) {
                 const hasBuiltin = BUILTIN_AI_MODELS.includes(savedModel as (typeof BUILTIN_AI_MODELS)[number]);
@@ -428,7 +428,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                     model.value = "custom";
                     if (customModel) customModel.value = savedCustomModel || savedModel;
                 } else {
-                    model.value = hasBuiltin ? savedModel : "gpt-5.4";
+                    model.value = hasBuiltin ? savedModel : "gpt-5.6-luna";
                     if (customModel) customModel.value = savedCustomModel;
                 }
                 syncCustomModelVisibility();
@@ -701,7 +701,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                     ? {
                           baseUrl: apiUrl?.value?.trim?.() || "",
                           apiKey: apiKey?.value?.trim?.() || "",
-                          model: (model?.value || "gpt-5.4") as any,
+                          model: (model?.value || "gpt-5.6-luna") as any,
                           customModel: model?.value === "custom" ? (customModel?.value?.trim?.() || "") : "",
                           defaultReasoningEffort: (defaultReasoningEffort?.value as any) || "medium",
                           defaultVerbosity: (defaultVerbosity?.value as any) || "medium",
