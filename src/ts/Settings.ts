@@ -1,5 +1,11 @@
 import { H } from "fest/lure";
-import { loadSettings, saveSettings, getLastSettingsSaveReport, ensureCapacitorCwspSettingsSeeded } from "com/config/Settings";
+import {
+    loadSettings,
+    saveSettings,
+    getLastSettingsSaveReport,
+    ensureCapacitorCwspSettingsSeeded,
+    ensureCrxCwspSettingsSeeded
+} from "com/config/Settings";
 import { BUILTIN_AI_MODELS, type AppSettings, type CoreMode } from "com/config/SettingsTypes";
 import { openAdminDoorFromCore, resolveAdminDoorUrls } from "com/config/admin-doors";
 import { sendMessage } from "com/core/UnifiedMessaging";
@@ -412,6 +418,10 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
     const loadSettingsForView = async () => {
         if (contributionCtx.surface === "capacitor" || contributionCtx.surface === "native") {
             await ensureCapacitorCwspSettingsSeeded().catch(() => null);
+        }
+        if (contributionCtx.surface === "crx" || contributionCtx.isExtension) {
+            // WHY: force L-110-crx before Neutralino hydrate can suggest desk L-110.
+            await ensureCrxCwspSettingsSeeded().catch(() => null);
         }
         // WHY: Neutralino/WebNative/gateway register settings:get — backend (portable) wins over IDB.
         return loadSettingsHydratedFromSync(() => loadSettings());

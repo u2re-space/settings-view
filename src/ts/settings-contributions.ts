@@ -1,8 +1,8 @@
 /*
  * Filename: settings-contributions.ts
  * FullPath: modules/views/settings-view/src/ts/settings-contributions.ts
- * Change date and time: 14.25.00_19.07.2026
- * Reason for changes: Neutralino/WebNative — retry settings:get so fields prefer backend SoT.
+ * Change date and time: 21.55.00_19.07.2026
+ * Reason for changes: Retry settings:get for CRX when Neutralino control auth is live.
  */
 /**
  * Settings-view glue: mount shared contribution registry tabs into the host UI.
@@ -200,12 +200,18 @@ const isDesktopSettingsSurface = (): boolean => {
             __CWS_NEUTRALINO_BOOT__?: boolean;
             __WEBNATIVE_AUTH__?: { port?: number };
             __NEUTRALINO_AUTH__?: { port?: number };
+            chrome?: { runtime?: { id?: string } };
         };
+        // WHY: CRX options also hydrate from Neutralino /service/config when control is live.
+        const crxWithBridge =
+            typeof g.chrome?.runtime?.id === "string" &&
+            typeof g.__NEUTRALINO_AUTH__?.port === "number";
         return Boolean(
             g.__CWS_WEBNATIVE_BOOT__ ||
                 g.__CWS_NEUTRALINO_BOOT__ ||
                 typeof g.__WEBNATIVE_AUTH__?.port === "number" ||
-                typeof g.__NEUTRALINO_AUTH__?.port === "number"
+                typeof g.__NEUTRALINO_AUTH__?.port === "number" ||
+                crxWithBridge
         );
     } catch {
         return false;
