@@ -3,6 +3,7 @@ import {
     loadSettings,
     saveSettings,
     getLastSettingsSaveReport,
+    noteSettingsControlSync,
     ensureCapacitorCwspSettingsSeeded,
     ensureCrxCwspSettingsSeeded
 } from "com/config/Settings";
@@ -708,6 +709,204 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             return;
         }
 
+        const crxPairBtn = t?.closest?.(
+            'button[data-action="crx-control-pair"]'
+        ) as HTMLButtonElement | null;
+        const crxUnpairBtn = t?.closest?.(
+            'button[data-action="crx-control-unpair"]'
+        ) as HTMLButtonElement | null;
+        if (crxPairBtn || crxUnpairBtn) {
+            void (async () => {
+                const statusEl = root.querySelector(
+                    "[data-crx-control-status]"
+                ) as HTMLElement | null;
+                const notifySw = () => {
+                    try {
+                        (globalThis as { chrome?: { runtime?: { sendMessage?: (m: unknown) => void } } })
+                            .chrome?.runtime?.sendMessage?.({ type: "cwsp-control-session-changed" });
+                    } catch {
+                        /* SW optional */
+                    }
+                };
+                try {
+                    const m = await import("com/config/settings/crx-control-session");
+                    if (crxUnpairBtn) {
+                        await m.clearCrxControlSession();
+                        if (statusEl) statusEl.textContent = await m.formatCrxControlSessionStatus();
+                        setNote("Control unpaired — Copy & Share / Paste by CWSP disabled.", {
+                            tone: "warn"
+                        });
+                        notifySw();
+                        return;
+                    }
+                    const localHub = String(
+                        (root.querySelector('[data-field="shell.localHubUrl"]') as HTMLInputElement | null)
+                            ?.value || ""
+                    ).trim();
+                    const preferredOrigin = String(
+                        document.documentElement.dataset.cwspControlOrigin || ""
+                    ).trim();
+                    if (statusEl) statusEl.textContent = "Control: waiting for pairing dialog…";
+                    setNote("Enter public token + device code in the pairing dialog…");
+                    const result = await m.pairCrxControlWithModal({
+                        localHubUrl: localHub,
+                        preferredOrigins: preferredOrigin ? [preferredOrigin] : []
+                    });
+                    if (result.cancelled) {
+                        if (statusEl) statusEl.textContent = await m.formatCrxControlSessionStatus();
+                        setNote("Pairing cancelled.");
+                        return;
+                    }
+                    if (statusEl) {
+                        statusEl.textContent = result.ok
+                            ? await m.formatCrxControlSessionStatus()
+                            : `Control: ${result.error}`;
+                    }
+                    if (result.ok) {
+                        setNote(`Paired Control at ${result.session.controlHost} (persistent).`);
+                        notifySw();
+                    } else {
+                        setNote(result.error, { tone: "warn" });
+                    }
+                } catch (err) {
+                    setNote(
+                        `Control pairing unavailable: ${err instanceof Error ? err.message : String(err)}`,
+                        { tone: "warn" }
+                    );
+                }
+            })();
+            return;
+        }
+
+        const pairRefreshBtn = t?.closest?.(
+            'button[data-action="control-pairing-refresh"]'
+        ) as HTMLButtonElement | null;
+        const pairRegenBtn = t?.closest?.(
+            'button[data-action="control-public-token-regenerate"]'
+        ) as HTMLButtonElement | null;
+        if (pairRefreshBtn || pairRegenBtn) {
+            const userClicked = Boolean((e as MouseEvent)?.isTrusted);
+            void (async () => {
+                // SECURITY: public SPA must not poll loopback /service/pair/display (403 flood).
+                try {
+                    const host = String(location.hostname || "");
+                    const publicHttps =
+                        location.protocol === "https:" &&
+                        host !== "localhost" &&
+                        host !== "127.0.0.1";
+                    if (publicHttps) {
+                        if (userClicked) {
+                            setNote(
+                                "Pairing codes are shown on the device (phone/desk), not in the public Control SPA.",
+                                { tone: "warn" }
+                            );
+                        }
+                        return;
+                    }
+                } catch {
+                    /* continue for native/desk */
+                }
+                const codeEl = root.querySelector(
+                    "input[data-control-device-code], [data-control-device-code]"
+                ) as HTMLInputElement | HTMLElement | null;
+                const tokenEl = root.querySelector(
+                    "input[data-control-public-token], [data-control-public-token]"
+                ) as HTMLInputElement | HTMLElement | null;
+                const codeMeta = root.querySelector(
+                    '[data-secret-meta="control-device-code"]'
+                ) as HTMLElement | null;
+                const tokenMeta = root.querySelector(
+                    '[data-secret-meta="control-public-token"]'
+                ) as HTMLElement | null;
+                const paint = (echo: Record<string, unknown>) => {
+                    const code = String(echo.deviceCode || "").trim();
+                    const left = Math.max(1, Math.round(Number(echo.expiresInMs || 0) / 1000));
+                    const pub = String(echo.publicToken || "").trim();
+                    if (codeEl instanceof HTMLInputElement) {
+                        codeEl.value = code;
+                    } else if (codeEl) {
+                        codeEl.textContent = code ? `Code: ${code} (${left}s)` : "Code: …";
+                    }
+                    if (tokenEl instanceof HTMLInputElement) {
+                        tokenEl.value = pub;
+                    } else if (tokenEl) {
+                        tokenEl.textContent = pub ? `Public token: ${pub}` : "Public token: …";
+                    }
+                    if (codeMeta) codeMeta.textContent = code ? `Expires in ${left}s` : "";
+                    if (tokenMeta) tokenMeta.textContent = pub ? "Stable until regenerated" : "";
+                };
+                try {
+                    if (userClicked) {
+                        setNote(pairRegenBtn ? "Regenerating public token…" : "Refreshing pairing code…", {
+                            tone: "warn"
+                        });
+                    }
+                    // Capacitor native bridge first.
+                    try {
+                        const { invokeCwsNative } = await import("com/routing/native/cws-bridge");
+                        const channel = pairRegenBtn
+                            ? "control:public-token:regenerate"
+                            : "control:pairing:status";
+                        const result = await invokeCwsNative(channel, {});
+                        const echo =
+                            (result as any)?.controlPairing ||
+                            (result as any)?.echo ||
+                            {};
+                        if (echo?.deviceCode || echo?.publicToken) {
+                            paint(echo);
+                            if (userClicked) {
+                                setNote(
+                                    pairRegenBtn
+                                        ? "New public token generated — update the Control SPA."
+                                        : "Pairing code refreshed.",
+                                    { tone: "ok" }
+                                );
+                            }
+                            return;
+                        }
+                    } catch {
+                        /* desk Neutralino below */
+                    }
+                    // Neutralino desk Control (loopback) — desk API key from auth globals.
+                    const g = globalThis as {
+                        __CWSP_CONTROL_API_KEY__?: string;
+                        __CWSP_CONTROL_PORT__?: number;
+                    };
+                    const port = Number(g.__CWSP_CONTROL_PORT__ || 29110) || 29110;
+                    const apiKey = String(g.__CWSP_CONTROL_API_KEY__ || "cwsp-neutralino-local").trim();
+                    const path = pairRegenBtn
+                        ? "/service/pair/regenerate-public-token"
+                        : "/service/pair/display";
+                    const res = await fetch(`http://127.0.0.1:${port}${path}`, {
+                        method: pairRegenBtn ? "POST" : "GET",
+                        headers: {
+                            Accept: "application/json",
+                            "Content-Type": "application/json",
+                            "X-API-Key": apiKey
+                        },
+                        body: pairRegenBtn ? "{}" : undefined
+                    });
+                    if (!res.ok) throw new Error(`Control HTTP ${res.status}`);
+                    paint((await res.json()) as Record<string, unknown>);
+                    if (userClicked) {
+                        setNote(
+                            pairRegenBtn
+                                ? "New public token generated — update the Control SPA."
+                                : "Pairing code refreshed.",
+                            { tone: "ok" }
+                        );
+                    }
+                } catch (e) {
+                    if (userClicked) {
+                        setNote(String((e as Error)?.message || e || "Pairing status unavailable"), {
+                            tone: "err"
+                        });
+                    }
+                }
+            })();
+            return;
+        }
+
         const apkCheckBtn = t?.closest?.('button[data-action="apk-update-check"]') as HTMLButtonElement | null;
         const apkInstallBtn = t?.closest?.('button[data-action="apk-update-install"]') as HTMLButtonElement | null;
         if (apkCheckBtn || apkInstallBtn) {
@@ -1043,10 +1242,58 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             }
             // WHY: push the same blob through settings:patch when a sync arm is registered
             // (gateway BFF / webnative control) so reload prefills from backend.
+            let publicControlSpa = false;
             try {
+                publicControlSpa =
+                    String(document.documentElement?.dataset?.cwspSurface || "").toLowerCase() ===
+                        "cwsp-control" ||
+                    /^(www\.)?cwsp\.u2re\.space$/i.test(String(location.hostname || ""));
+            } catch {
+                publicControlSpa = false;
+            }
+            try {
+                // WHY: Android phone Chrome → Capacitor Control needs a live X-Control-Session.
+                // Without pair, old builds reported a fake "Node sync failed".
+                if (publicControlSpa) {
+                    const ensure = (
+                        globalThis as {
+                            __CWSP_ENSURE_CONTROL_FOR_SAVE__?: () => Promise<{
+                                ok: boolean;
+                                error?: string;
+                            }>;
+                        }
+                    ).__CWSP_ENSURE_CONTROL_FOR_SAVE__;
+                    if (typeof ensure === "function") {
+                        const ready = await ensure();
+                        if (!ready?.ok) {
+                            noteSettingsControlSync(false, ready?.error || "Control not paired");
+                            setNote(
+                                ready?.error ||
+                                    "Pair phone Control (token + code + Accept) before Save",
+                                { tone: "warn" }
+                            );
+                            return;
+                        }
+                    }
+                }
                 await persistContributionsViaSync(root, saved, contributionCtx);
+                // WHY: public SPA SoT is the Control arm (Capacitor Java / Neutralino), not Node push.
+                if (publicControlSpa) {
+                    const live = Boolean(
+                        (globalThis as { __CWSP_CONTROL_BRIDGE_LIVE__?: boolean })
+                            .__CWSP_CONTROL_BRIDGE_LIVE__
+                    );
+                    if (live) noteSettingsControlSync(true);
+                }
             } catch (e) {
                 console.warn("[Settings] backend settings:patch failed:", e);
+                const msg = e instanceof Error ? e.message : String(e);
+                if (publicControlSpa) noteSettingsControlSync(false, msg);
+                // WHY: CRX Control 401 opens pairing modal inside the arm; surface cancel/fail here.
+                if (/pairing|unauthorized|401|403|Control/i.test(msg)) {
+                    setNote(msg, { tone: "warn" });
+                    return;
+                }
             }
             applyContributions(root, saved, contributionCtx);
 
@@ -1056,6 +1303,24 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             const permDenied = permReport.results.some((r) => r.granted === false);
 
             void import("shared/transport/hub-socket-boot").then(async (m) => {
+                // WHY: public Control SPA saves via paired Control arm only — never browser /ws
+                // to cwsp.u2re.space (SPA is not a hub).
+                if (publicControlSpa) {
+                    try {
+                        const live = Boolean(
+                            (globalThis as { __CWSP_CONTROL_BRIDGE_LIVE__?: boolean })
+                                .__CWSP_CONTROL_BRIDGE_LIVE__
+                        );
+                        if (!live) {
+                            console.warn(
+                                "[Settings] Control not paired — settings saved locally only; pair to push to device"
+                            );
+                        }
+                    } catch {
+                        /* ignore */
+                    }
+                    return;
+                }
                 // WHY: Neutralino Node clipboard-hub owns /ws — never reconnect browser WebSocket.
                 if (typeof m.nodeClipboardHubOwnsExclusiveWebsocket === "function"
                     && m.nodeClipboardHubOwnsExclusiveWebsocket()) {
@@ -1139,10 +1404,31 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             } else if (report.nativeSynced === false) {
                 parts.push(`native sync failed${report.nativeError ? `: ${report.nativeError}` : ""}`);
             }
+            const controlVia = (() => {
+                try {
+                    return String(
+                        (globalThis as { __CWSP_CONTROL_VIA__?: string }).__CWSP_CONTROL_VIA__ || ""
+                    );
+                } catch {
+                    return "";
+                }
+            })();
+            const controlLabel =
+                controlVia === "android"
+                    ? "phone Control (Capacitor)"
+                    : controlVia === "neutralino"
+                      ? "desk Control (Neutralino)"
+                      : publicControlSpa
+                        ? "Control"
+                        : "desk Control";
             if (report.webnativeSynced === true) {
-                parts.push("synced to Node backend");
+                parts.push(`synced to ${controlLabel}`);
             } else if (report.webnativeSynced === false) {
-                parts.push(`Node sync failed${report.webnativeError ? `: ${report.webnativeError}` : ""}`);
+                parts.push(
+                    `${controlLabel} sync failed${
+                        report.webnativeError ? `: ${report.webnativeError}` : ""
+                    }`
+                );
             }
             if (permLines.length) parts.push(...permLines);
 

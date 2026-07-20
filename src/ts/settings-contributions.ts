@@ -48,7 +48,14 @@ export const resolveSettingsSurface = (): SettingsContributionContext["surface"]
     try {
         const g = globalThis as any;
         if (g?.chrome?.runtime?.id) return "crx";
-        if (g?.Capacitor?.isNativePlatform?.()) return "capacitor";
+        // WHY: isNativePlatform can be late; also accept getPlatform for Capacitor WebView.
+        if (
+            g?.Capacitor?.isNativePlatform?.() ||
+            g?.Capacitor?.getPlatform?.() === "android" ||
+            g?.Capacitor?.getPlatform?.() === "ios"
+        ) {
+            return "capacitor";
+        }
         if (g?.__CWS_NATIVE__ === true) return "native";
         // INVARIANT: md.u2re.space / /markdown/ is a document PWA — not CWSP Control.
         if (
@@ -58,6 +65,7 @@ export const resolveSettingsSurface = (): SettingsContributionContext["surface"]
         ) {
             return "markdown";
         }
+        // Neutralino/WebNative still report contribution surface as "web" (no webnative enum).
         if (typeof document !== "undefined") return "web";
     } catch {
         /* ignore */
@@ -312,8 +320,21 @@ export const loadSettingsHydratedFromSync = async (
     let remote = await getSettingsSync();
     // WHY: Neutralino control host often warms after first Settings paint — retry so
     // fields bind to portable.config (backend) instead of stale localStorage/IDB.
-    // CRX options also hydrate CWSP from Extension Local hub `/service/config`.
-    const shouldRetryRemote = isDesktopSettingsSurface() || isCrxSettingsRuntime();
+    // CRX: only retry when Control is already live (paired session) — unpaired = chrome.storage only.
+    const crxControlLive = (() => {
+        try {
+            if (!isCrxSettingsRuntime()) return false;
+            const g = globalThis as { __NEUTRALINO_AUTH__?: { port?: number } };
+            const ds = String(
+                (globalThis as { document?: { documentElement?: { dataset?: DOMStringMap } } })
+                    .document?.documentElement?.dataset?.cwspBridge || ""
+            );
+            return ds === "live" || typeof g.__NEUTRALINO_AUTH__?.port === "number";
+        } catch {
+            return false;
+        }
+    })();
+    const shouldRetryRemote = isDesktopSettingsSurface() || crxControlLive;
     if (shouldRetryRemote && !remoteSettingsLooksUseful(remote)) {
         for (let i = 0; i < 8; i++) {
             await new Promise((r) => setTimeout(r, 300));
@@ -378,6 +399,30 @@ export const resolveCwspSettingsBeforeSave = async (settings: AppSettings): Prom
     const { sanitizeFleetSelfWireNodeId } = await import("cwsp-shared/airpad-cwsp-client-parity");
     const canonicalUserId = sanitizeFleetSelfWireNodeId(core.userId);
     if (canonicalUserId) core.userId = canonicalUserId;
+    // WHY: Control SPA host must never be saved as Relay (produces wss://cwsp.u2re.space/ws).
+    const stripControlSpa = (url: string): string => {
+        const raw = String(url || "").trim().toLowerCase();
+        if (!raw) return "";
+        try {
+            const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+            const host = new URL(withScheme).hostname.toLowerCase();
+            if (
+                host === "cwsp.u2re.space" ||
+                host === "www.cwsp.u2re.space" ||
+                host === "md.u2re.space" ||
+                host === "www.md.u2re.space"
+            ) {
+                return "";
+            }
+        } catch {
+            if (/cwsp\.u2re\.space|md\.u2re\.space/i.test(raw)) return "";
+        }
+        return String(url || "").trim();
+    };
+    if (typeof core.endpointUrl === "string") {
+        const cleaned = stripControlSpa(core.endpointUrl);
+        if (cleaned !== core.endpointUrl.trim()) core.endpointUrl = cleaned;
+    }
     const relay = typeof core.endpointUrl === "string" ? core.endpointUrl : "";
     const direct = typeof core.ops?.directUrl === "string" ? core.ops.directUrl : "";
     if (!relay.trim() && !direct.trim()) return;
