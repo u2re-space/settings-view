@@ -1,3 +1,10 @@
+/*
+ * Filename: settings-styles-attach.ts
+ * FullPath: modules/views/settings-view/src/ts/settings-styles-attach.ts
+ * Change date and time: 13.40.00_20.07.2026
+ * Reason for changes: Critical CSS must not force dark fg/bg — broke light theme contrast.
+ */
+
 // @ts-ignore — Vite inline SCSS
 import settingsStyles from "../scss/Settings.scss?inline";
 
@@ -11,13 +18,16 @@ const normalizeInlineSettingsCss = (raw: string): string => {
     return css;
 };
 
-/** Minimal layout if SCSS inline import is empty in a bad bundle. */
+/**
+ * Layout-only fallback when SCSS inline import is empty.
+ * INVARIANT: no hardcoded dark `color`/`background` — Settings.scss owns theme via `--sv-*`.
+ */
 const CRITICAL_SETTINGS_CSS = `
-.view-settings{display:grid!important;grid-template-rows:auto minmax(0,1fr) auto!important;block-size:100%!important;min-block-size:0!important;overflow:hidden!important;color:#e8edf2!important;background:#0f1318!important}
+.view-settings{display:grid!important;grid-template-rows:auto minmax(0,1fr) auto!important;block-size:100%!important;min-block-size:0!important;overflow:hidden!important}
 .view-settings .settings-screen__body{display:flex!important;flex-direction:column!important;min-block-size:0!important;overflow:auto!important;-webkit-overflow-scrolling:touch}
 .view-settings [data-tab-panel]:not([hidden]){display:flex!important;flex-direction:column!important;gap:.75rem!important}
 .view-settings [data-tab-panel][hidden]{display:none!important}
-.view-settings .field,.view-settings .form-input,.view-settings .form-select{pointer-events:auto!important;color:inherit!important}
+.view-settings .field,.view-settings .form-input,.view-settings .form-select{pointer-events:auto!important}
 `;
 
 /** Attach Settings.scss to a `.view-settings` host (works in light DOM + open shadow roots). */
@@ -26,8 +36,8 @@ export const attachSettingsInlineStyles = (host: HTMLElement | null | undefined)
     if (host.querySelector(`style[${STYLE_MARKER}]`)) return;
 
     let css = normalizeInlineSettingsCss(String(settingsStyles || ""));
+    // WHY: only use critical layout CSS as fallback — prepending dark !important broke light theme.
     if (!css.trim()) css = CRITICAL_SETTINGS_CSS;
-    else css = `${CRITICAL_SETTINGS_CSS}\n${css}`;
 
     const style = document.createElement("style");
     style.setAttribute(STYLE_MARKER, "");

@@ -2,8 +2,18 @@
  * INVARIANT: Works inside open shadow roots: no reliance on `html:has(...)`, `:root:has(...)`,
  * or `html[data-active-view]` for paint. Uses inherited `color-scheme` + `light-dark()` fallbacks
  * wherever `--color-*` Veela tokens are absent on first paint.
+ * WHY: Lock `color-scheme` to app theme so fallbacks do not follow OS while Veela is light.
  */
 @layer settings-view {
+    /* Light DOM (md.u2re.space) + host-context for open shadow shells. */
+    :is(html[data-theme="light"] .view-settings, :host-context(html[data-theme="light"]) .view-settings) {
+        color-scheme: light;
+    }
+
+    :is(html[data-theme="dark"] .view-settings, :host-context(html[data-theme="dark"]) .view-settings) {
+        color-scheme: dark;
+    }
+
     .view-settings {
         color-scheme: inherit;
 
