@@ -1,8 +1,8 @@
 /*
  * Filename: settings-contributions.ts
  * FullPath: modules/views/settings-view/src/ts/settings-contributions.ts
- * Change date and time: 21.55.00_19.07.2026
- * Reason for changes: Retry settings:get for CRX when Neutralino control auth is live.
+ * Change date and time: 10.40.00_20.07.2026
+ * Reason for changes: CRX hydrate — keep core.userId (wire) ≠ shell.clientId (desk).
  */
 /**
  * Settings-view glue: mount shared contribution registry tabs into the host UI.
@@ -247,6 +247,50 @@ const remoteSettingsLooksUseful = (remote: SettingsBlob): boolean => {
     );
 };
 
+const isCrxSettingsRuntime = (): boolean => {
+    try {
+        const id = (globalThis as { chrome?: { runtime?: { id?: string } } }).chrome?.runtime?.id;
+        return typeof id === "string" && id.length > 0;
+    } catch {
+        return false;
+    }
+};
+
+/**
+ * INVARIANT (CRX): Extension wire `core.userId` = L-110-crx;
+ * CWSP desk `shell.clientId` = L-110 (never *-crx).
+ * WHY: polluted chrome.storage / portable swaps these on open without this pass.
+ */
+const reconcileCrxIdentityAfterHydrate = (settings: AppSettings): AppSettings => {
+    if (!isCrxSettingsRuntime()) return settings;
+    const CRX_WIRE = "L-110-crx";
+    const DESK_DEFAULT = "L-110";
+    const isCrxWire = (v: unknown) => /^L-\d{1,3}-crx$/i.test(String(v ?? "").trim());
+    const pickDesk = (...cands: unknown[]): string => {
+        for (const c of cands) {
+            const id = String(c ?? "").trim();
+            if (id && !isCrxWire(id)) return id;
+        }
+        return DESK_DEFAULT;
+    };
+    const deskId = pickDesk(settings.shell?.clientId, settings.core?.userId);
+    return {
+        ...settings,
+        core: {
+            ...(settings.core || {}),
+            userId: CRX_WIRE,
+            socket: {
+                ...(settings.core?.socket || {}),
+                selfId: CRX_WIRE
+            }
+        },
+        shell: {
+            ...(settings.shell || {}),
+            clientId: deskId
+        }
+    };
+};
+
 /** Load local settings then overlay the registered sync arm (gateway / webnative / …). */
 export const loadSettingsHydratedFromSync = async (
     loadLocal: () => Promise<AppSettings>
@@ -254,21 +298,23 @@ export const loadSettingsHydratedFromSync = async (
     const local = await loadLocal();
     // WHY: preferBackendSync=false keeps Settings on IDB/local only (operator override).
     if ((local.core?.preferBackendSync ?? true) === false) {
-        return local;
+        return reconcileCrxIdentityAfterHydrate(local);
     }
 
     let remote = await getSettingsSync();
     // WHY: Neutralino control host often warms after first Settings paint — retry so
     // fields bind to portable.config (backend) instead of stale localStorage/IDB.
-    if (isDesktopSettingsSurface() && !remoteSettingsLooksUseful(remote)) {
-        for (let i = 0; i < 6; i++) {
-            await new Promise((r) => setTimeout(r, 250));
+    // CRX options also hydrate CWSP from Extension Local hub `/service/config`.
+    const shouldRetryRemote = isDesktopSettingsSurface() || isCrxSettingsRuntime();
+    if (shouldRetryRemote && !remoteSettingsLooksUseful(remote)) {
+        for (let i = 0; i < 8; i++) {
+            await new Promise((r) => setTimeout(r, 300));
             remote = await getSettingsSync();
             if (remoteSettingsLooksUseful(remote)) break;
         }
     }
 
-    return mergeSettingsFromSync(local, remote);
+    return reconcileCrxIdentityAfterHydrate(mergeSettingsFromSync(local, remote));
 };
 
 /**
