@@ -1,8 +1,8 @@
 /*
  * Filename: settings-contributions.ts
  * FullPath: modules/views/settings-view/src/ts/settings-contributions.ts
- * Change date and time: 10.40.00_20.07.2026
- * Reason for changes: CRX hydrate — keep core.userId (wire) ≠ shell.clientId (desk).
+ * Change date and time: 13.35.00_20.07.2026
+ * Reason for changes: Detect cw-markdown surface so CWSP settings stay off md.u2re.space.
  */
 /**
  * Settings-view glue: mount shared contribution registry tabs into the host UI.
@@ -50,6 +50,14 @@ export const resolveSettingsSurface = (): SettingsContributionContext["surface"]
         if (g?.chrome?.runtime?.id) return "crx";
         if (g?.Capacitor?.isNativePlatform?.()) return "capacitor";
         if (g?.__CWS_NATIVE__ === true) return "native";
+        // INVARIANT: md.u2re.space / /markdown/ is a document PWA — not CWSP Control.
+        if (
+            typeof document !== "undefined" &&
+            String(document.documentElement?.dataset?.cwspSurface || "").toLowerCase() ===
+                "cw-markdown"
+        ) {
+            return "markdown";
+        }
         if (typeof document !== "undefined") return "web";
     } catch {
         /* ignore */
