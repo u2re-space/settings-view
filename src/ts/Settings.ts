@@ -6,7 +6,12 @@ import {
     ensureCapacitorCwspSettingsSeeded,
     ensureCrxCwspSettingsSeeded
 } from "com/config/Settings";
-import { BUILTIN_AI_MODELS, type AppSettings, type CoreMode } from "com/config/SettingsTypes";
+import {
+    BUILTIN_AI_MODELS,
+    resolveEcosystemToken,
+    type AppSettings,
+    type CoreMode
+} from "com/config/SettingsTypes";
 import { openAdminDoorFromCore, resolveAdminDoorUrls } from "com/config/admin-doors";
 import { sendMessage } from "com/core/UnifiedMessaging";
 import { applyTheme } from "core/utils/Theme";
@@ -573,6 +578,24 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             applyTheme(s);
             applyContributions(root, s, contributionCtx);
             opts.onTheme?.(((s?.appearance?.theme as string) || "auto") as "auto" | "light" | "dark");
+            // Capacitor: hydrate installed version + signing cert fingerprint in App update section.
+            if (isCapacitorNative()) {
+                void import("com/routing/native/cws-bridge")
+                    .then((m) => m.invokeCwsNative("app:info", {}))
+                    .then((result) => {
+                        const echo = (result as any)?.echo || {};
+                        const el = root.querySelector("[data-apk-local-version]") as HTMLElement | null;
+                        if (!el) return;
+                        const sig = String(echo?.signatureSha256 || "").slice(0, 12);
+                        const anyResult = result as any;
+                        el.textContent =
+                            `Installed: ${echo?.versionName || anyResult?.versionName || "?"} (${echo?.versionCode ?? anyResult?.versionCode ?? "?"})` +
+                            (sig ? ` · sig ${sig}…` : "");
+                    })
+                    .catch(() => {
+                        /* native bridge unavailable */
+                    });
+            }
         })
         .catch(() => {
             renderMcpConfigurations(mcpSection, []);
@@ -682,6 +705,91 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                 .then((m) => m.openNativeNotificationSettings?.())
                 .then(() => setNote("Notification settings opened (native shell only)."))
                 .catch(() => setNote("Native settings unavailable in this context."));
+            return;
+        }
+
+        const apkCheckBtn = t?.closest?.('button[data-action="apk-update-check"]') as HTMLButtonElement | null;
+        const apkInstallBtn = t?.closest?.('button[data-action="apk-update-install"]') as HTMLButtonElement | null;
+        if (apkCheckBtn || apkInstallBtn) {
+            const channel = apkInstallBtn ? "app:update:install" : "app:update:check";
+            void (async () => {
+                setNote(apkInstallBtn ? "Downloading APK…" : "Checking for update…", { tone: "warn" });
+                try {
+                    const s = await loadSettings();
+                    const srcEl = root.querySelector(
+                        '[data-field="shell.apkUpdateSource"]'
+                    ) as HTMLSelectElement | null;
+                    const endpointEl = root.querySelector(
+                        '[data-field="core.endpointUrl"]'
+                    ) as HTMLInputElement | null;
+                    const tokenEl = root.querySelector(
+                        '[data-field="core.ecosystemToken"]'
+                    ) as HTMLInputElement | null;
+                    const insecureEl = root.querySelector(
+                        '[data-field="core.allowInsecureTls"]'
+                    ) as HTMLInputElement | null;
+                    const versionEl = root.querySelector(
+                        "[data-apk-local-version]"
+                    ) as HTMLElement | null;
+                    const source = (srcEl?.value || s.shell?.apkUpdateSource || "wan").trim();
+                    const endpointUrl = (endpointEl?.value || s.core?.endpointUrl || "").trim();
+                    const token =
+                        (tokenEl?.value || "").trim() || resolveEcosystemToken(s);
+                    const allowInsecureTls =
+                        insecureEl?.checked ?? Boolean((s.core as any)?.allowInsecureTls);
+                    const { invokeCwsNative } = await import("com/routing/native/cws-bridge");
+                    const result = await invokeCwsNative(channel, {
+                        source,
+                        endpointUrl,
+                        token,
+                        ecosystemToken: token,
+                        allowInsecureTls
+                    });
+                    const echo = (result as any)?.echo || (result as any)?.envelope?.payload || {};
+                    const err =
+                        echo?.error ||
+                        (result as any)?.error ||
+                        (!(result as any)?.ok && !(result as any)?.echo ? "update failed" : "");
+                    if (err) {
+                        setNote(String(err), { tone: "err" });
+                        return;
+                    }
+                    if (versionEl && (echo?.localVersionCode != null || echo?.localVersionName)) {
+                        const sig = String(echo?.localSignatureSha256 || "").slice(0, 12);
+                        versionEl.textContent =
+                            `Installed: ${echo.localVersionName || "?"} (${echo.localVersionCode ?? "?"})` +
+                            (sig ? ` · sig ${sig}…` : "");
+                    }
+                    if (apkInstallBtn) {
+                        setNote(
+                            echo?.launchedInstaller
+                                ? "Installer launched — confirm on the system prompt."
+                                : "Install request sent.",
+                            { tone: "ok" }
+                        );
+                        return;
+                    }
+                    const local = echo?.localVersionCode ?? "?";
+                    const remote = echo?.remoteVersionCode ?? "?";
+                    const avail = echo?.updateAvailable === true;
+                    const sigOk = echo?.signatureCompatible !== false;
+                    if (!sigOk) {
+                        setNote(
+                            `Signature mismatch — remote APK not signed like this install (local ${local}, remote ${remote}).`,
+                            { tone: "err" }
+                        );
+                        return;
+                    }
+                    setNote(
+                        avail
+                            ? `Update available: ${local} → ${remote} (${echo?.remoteVersionName || "?"}).`
+                            : `Up to date (local ${local}, remote ${remote}).`,
+                        { tone: avail ? "warn" : "ok" }
+                    );
+                } catch (e) {
+                    setNote(String((e as Error)?.message || e), { tone: "err" });
+                }
+            })();
             return;
         }
 
