@@ -907,6 +907,149 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             return;
         }
 
+        const filesPickSaf = t?.closest?.('button[data-action="files-storage-pick-saf"]') as HTMLButtonElement | null;
+        const filesClearSaf = t?.closest?.('button[data-action="files-storage-clear-saf"]') as HTMLButtonElement | null;
+        const filesShowPaths = t?.closest?.('button[data-action="files-storage-show-paths"]') as HTMLButtonElement | null;
+        const filesShareReadme = t?.closest?.('button[data-action="files-storage-share-readme"]') as HTMLButtonElement | null;
+        const filesOpenExplorer = t?.closest?.('button[data-action="files-storage-open-explorer"]') as HTMLButtonElement | null;
+        const filesPermStatus = t?.closest?.('button[data-action="files-storage-perm-status"]') as HTMLButtonElement | null;
+        const filesRequestMedia = t?.closest?.('button[data-action="files-storage-request-media"]') as HTMLButtonElement | null;
+        const filesRequestAllFiles = t?.closest?.('button[data-action="files-storage-request-all-files"]') as HTMLButtonElement | null;
+        if (
+            filesPickSaf ||
+            filesClearSaf ||
+            filesShowPaths ||
+            filesShareReadme ||
+            filesOpenExplorer ||
+            filesPermStatus ||
+            filesRequestMedia ||
+            filesRequestAllFiles
+        ) {
+            void (async () => {
+                try {
+                    const { invokeCwsNative } = await import("com/routing/native/cws-bridge");
+                    const s = await loadSettings();
+                    const safEl = root.querySelector("[data-files-saf-uri]") as HTMLElement | null;
+                    const pathsEl = root.querySelector("[data-files-storage-paths]") as HTMLElement | null;
+                    const permEl = root.querySelector("[data-files-perm-status]") as HTMLElement | null;
+                    const paintSaf = (uri: string) => {
+                        if (!safEl) return;
+                        const u = String(uri || "").trim();
+                        safEl.textContent = u
+                            ? `SAF folder: ${u.length > 72 ? `${u.slice(0, 36)}…${u.slice(-28)}` : u}`
+                            : "SAF folder: (not set)";
+                    };
+                    const paintPerm = (echo: Record<string, unknown>) => {
+                        if (!permEl) return;
+                        permEl.textContent =
+                            `Media/storage runtime: ${echo.runtimeGranted === true ? "granted" : "missing"}` +
+                            (echo.missingRuntime ? ` (${echo.missingRuntime})` : "") +
+                            `\nAll-files access: ${echo.allFilesAccess === true ? "granted" : "not granted"}` +
+                            (echo.note ? `\n${echo.note}` : "");
+                    };
+                    if (filesClearSaf) {
+                        s.shell = { ...(s.shell || {}), filesIncomingDir: "", filesLandingMode: s.shell?.filesLandingMode || "app" };
+                        await saveSettings(s);
+                        paintSaf("");
+                        setNote("SAF folder cleared.", { tone: "ok" });
+                        return;
+                    }
+                    const channel = filesPickSaf
+                        ? "files:storage:pick-landing"
+                        : filesShareReadme
+                          ? "files:storage:share-readme"
+                          : filesOpenExplorer
+                            ? "files:storage:open-explorer"
+                            : filesRequestMedia
+                              ? "files:storage:request-media"
+                              : filesRequestAllFiles
+                                ? "files:storage:request-all-files"
+                                : filesPermStatus
+                                  ? "files:storage:permissions-status"
+                                  : "files:storage:status";
+                    const stagingEl = root.querySelector(
+                        '[data-field="shell.filesStagingRoot"]'
+                    ) as HTMLSelectElement | null;
+                    const landingEl = root.querySelector(
+                        '[data-field="shell.filesLandingMode"]'
+                    ) as HTMLSelectElement | null;
+                    setNote(
+                        filesPickSaf
+                            ? "Opening folder picker…"
+                            : filesOpenExplorer
+                              ? "Opening CWSP Files…"
+                              : filesRequestMedia
+                                ? "Requesting media permission…"
+                                : filesRequestAllFiles
+                                  ? "Opening all-files settings…"
+                                  : "Reading storage…",
+                        { tone: "warn" }
+                    );
+                    const result = await invokeCwsNative(channel, {
+                        stagingRoot: stagingEl?.value || s.shell?.filesStagingRoot || "app",
+                        landingMode: landingEl?.value || s.shell?.filesLandingMode || "app",
+                        incomingDir: s.shell?.filesIncomingDir || ""
+                    });
+                    const echo = ((result as any)?.echo ||
+                        (result as any)?.envelope?.payload ||
+                        {}) as Record<string, unknown>;
+                    const err =
+                        echo?.error ||
+                        (result as any)?.error ||
+                        (!(result as any)?.ok &&
+                        !echo?.outgoingDir &&
+                        !echo?.documentUri &&
+                        echo?.runtimeGranted === undefined
+                            ? "storage action failed"
+                            : "");
+                    if (err) {
+                        setNote(String(err), { tone: "err" });
+                        return;
+                    }
+                    if (filesPickSaf && echo?.incomingDir) {
+                        s.shell = {
+                            ...(s.shell || {}),
+                            filesIncomingDir: String(echo.incomingDir),
+                            filesLandingMode: "saf"
+                        };
+                        await saveSettings(s);
+                        if (landingEl) landingEl.value = "saf";
+                        paintSaf(String(echo.incomingDir));
+                        setNote("SAF folder saved. Landing mode set to SAF.", { tone: "ok" });
+                        return;
+                    }
+                    if (echo.runtimeGranted !== undefined || echo.allFilesAccess !== undefined) {
+                        paintPerm(echo);
+                    }
+                    if (pathsEl && (echo?.outgoingDir || echo?.incomingAppDir || echo?.readmePath || echo?.note)) {
+                        pathsEl.textContent =
+                            `Outgoing temp: ${echo.outgoingDir || "?"}\n` +
+                            `Incoming temp: ${echo.incomingAppDir || "?"}\n` +
+                            `Landing mode: ${echo.landingMode || "?"}` +
+                            (echo?.incomingDir ? `\nSAF: ${echo.incomingDir}` : "") +
+                            (echo?.note && echo.runtimeGranted === undefined ? `\n${echo.note}` : "");
+                    }
+                    setNote(
+                        filesShareReadme
+                            ? "Shared README — open it in another app to see the paths."
+                            : filesOpenExplorer
+                              ? "Opened document picker — look for CWSP Files (or Files app sidebar)."
+                              : filesRequestAllFiles
+                                ? "Enable “Allow access to manage all files”, then tap Refresh status."
+                                : filesRequestMedia
+                                  ? "Media permission dialog finished — see status."
+                                  : "Status updated.",
+                        { tone: "ok" }
+                    );
+                } catch (e) {
+                    setNote(String((e as Error)?.message || e || "Files storage action failed"), {
+                        tone: "err"
+                    });
+                }
+            })();
+            return;
+        }
+
         const apkCheckBtn = t?.closest?.('button[data-action="apk-update-check"]') as HTMLButtonElement | null;
         const apkInstallBtn = t?.closest?.('button[data-action="apk-update-install"]') as HTMLButtonElement | null;
         if (apkCheckBtn || apkInstallBtn) {
