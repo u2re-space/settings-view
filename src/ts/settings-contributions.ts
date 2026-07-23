@@ -400,24 +400,39 @@ export const resolveCwspSettingsBeforeSave = async (settings: AppSettings): Prom
     const canonicalUserId = sanitizeFleetSelfWireNodeId(core.userId);
     if (canonicalUserId) core.userId = canonicalUserId;
     // WHY: Control SPA host must never be saved as Relay (produces wss://cwsp.u2re.space/ws).
-    const stripControlSpa = (url: string): string => {
-        const raw = String(url || "").trim().toLowerCase();
+    // Multi-hub lists: strip per-segment — never parse the whole `a;b` string as one URL.
+    const isControlSpaHost = (host: string): boolean => {
+        const h = host.toLowerCase();
+        return (
+            h === "cwsp.u2re.space" ||
+            h === "www.cwsp.u2re.space" ||
+            h === "md.u2re.space" ||
+            h === "www.md.u2re.space"
+        );
+    };
+    const stripControlSpaSegment = (url: string): string => {
+        const raw = String(url || "").trim();
         if (!raw) return "";
         try {
             const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
             const host = new URL(withScheme).hostname.toLowerCase();
-            if (
-                host === "cwsp.u2re.space" ||
-                host === "www.cwsp.u2re.space" ||
-                host === "md.u2re.space" ||
-                host === "www.md.u2re.space"
-            ) {
-                return "";
-            }
+            if (isControlSpaHost(host)) return "";
         } catch {
             if (/cwsp\.u2re\.space|md\.u2re\.space/i.test(raw)) return "";
         }
-        return String(url || "").trim();
+        return raw;
+    };
+    const stripControlSpa = (url: string): string => {
+        const raw = String(url || "").trim();
+        if (!raw) return "";
+        if (/[,;\s]/.test(raw) && /:\/\//.test(raw)) {
+            return raw
+                .split(/[,;\s]+/)
+                .map((part) => stripControlSpaSegment(part.trim()))
+                .filter(Boolean)
+                .join(";");
+        }
+        return stripControlSpaSegment(raw);
     };
     if (typeof core.endpointUrl === "string") {
         const cleaned = stripControlSpa(core.endpointUrl);
