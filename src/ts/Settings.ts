@@ -18,7 +18,7 @@ import { sendMessage } from "com/core/UnifiedMessaging";
 import { applyTheme } from "core/utils/Theme";
 import { setString, StorageKeys } from "core/storage";
 import { navigateToView } from "shells/boot";
-import { applyAirpadRuntimeFromAppSettings } from "views/airpad/config/config";
+import { applyAirpadRuntimeFromAppSettings } from "cwsp-shared/remote-connection-runtime";
 
 import {
     buildResponseLanguageOptions,
@@ -224,7 +224,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
     const coreAdminHttps = field('[data-field="core.admin.httpsOrigin"]') as HTMLInputElement | null;
     const coreAdminHttp = field('[data-field="core.admin.httpOrigin"]') as HTMLInputElement | null;
     const coreAdminPath = field('[data-field="core.admin.path"]') as HTMLInputElement | null;
-    const coreUseCoreIdentityAirpad = field('[data-field="core.useCoreIdentityForAirPad"]') as HTMLInputElement | null;
+    // WHY: AirPad UI retired — keep schema default true; no Settings checkbox.
     const coreSocketAccessToken = field('[data-field="core.socket.accessToken"]') as HTMLInputElement | null;
     const coreSocketRouteTarget = field('[data-field="core.socket.routeTarget"]') as HTMLInputElement | null;
     const coreSocketClientAccessToken = field('[data-field="core.socket.clientAccessToken"]') as HTMLInputElement | null;
@@ -374,7 +374,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         preferBackendSync: (corePreferBackendSync?.checked ?? true) !== false,
         appClientId: coreAppClientId?.value?.trim() || "",
         allowInsecureTls: Boolean(coreAllowInsecureTls?.checked),
-        useCoreIdentityForAirPad: (coreUseCoreIdentityAirpad?.checked ?? true) !== false,
+        useCoreIdentityForAirPad: true,
         socket: {
             accessToken: eco,
             routeTarget: coreSocketRouteTarget?.value?.trim() || "",
@@ -513,7 +513,6 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             if (corePreferBackendSync) corePreferBackendSync.checked = (s?.core?.preferBackendSync ?? true) !== false;
             if (coreEncrypt) coreEncrypt.checked = Boolean(s?.core?.encrypt);
             if (coreAppClientId) coreAppClientId.value = (s?.core?.appClientId || "").trim();
-            if (coreUseCoreIdentityAirpad) coreUseCoreIdentityAirpad.checked = (s?.core?.useCoreIdentityForAirPad ?? true) !== false;
             if (coreSocketRouteTarget) {
                 coreSocketRouteTarget.value = (
                     (s?.core?.socket?.routeTarget || s?.core?.socket?.selfId || "") as string
@@ -1232,7 +1231,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                           preferBackendSync: readCheckboxValue(corePreferBackendSync, (current.core?.preferBackendSync ?? true) !== false),
                           appClientId: readTrimmedControlValue(coreAppClientId, current.core?.appClientId || ""),
                           allowInsecureTls: readCheckboxValue(coreAllowInsecureTls, Boolean(current.core?.allowInsecureTls)),
-                          useCoreIdentityForAirPad: readCheckboxValue(coreUseCoreIdentityAirpad, (current.core?.useCoreIdentityForAirPad ?? true) !== false),
+                          useCoreIdentityForAirPad: true,
                           socket: (() => {
                               const prev = { ...(current.core?.socket || {}) };
                               delete (prev as { airpadAuthToken?: string }).airpadAuthToken;

@@ -27,7 +27,6 @@ import {
 
 export { registerBuiltinSettingsContributions };
 export {
-    registerAirpadSettingsContribution,
     registerCwspSettingsContribution,
     registerDeviceSettingsContribution,
     registerReaderSettingsContribution,

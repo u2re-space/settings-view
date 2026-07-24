@@ -26,7 +26,6 @@ export {
 } from "com/config/SettingsContributions";
 export {
     registerBuiltinSettingsContributions,
-    registerAirpadSettingsContribution,
     registerCwspSettingsContribution,
     registerWorkcenterSettingsContribution,
     registerReaderSettingsContribution,
