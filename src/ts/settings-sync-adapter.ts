@@ -11,7 +11,7 @@
  * WHY this exists: Capacitor (Android) syncs settings via `CwsBridge.invoke("settings:patch")`
  * → Java `prefs.db`; WebNative (desktop) syncs via control RPC `/service/config` →
  * `portable.config.json`. Both are "settings:patch"/"settings:get" under the hood but live in
- * different layers (CwsBridge is in the CrossWord app layer; WebNative control RPC is in the
+ * different layers (CwsBridge is in the CWSP-shell app layer; WebNative control RPC is in the
  * webnative app layer). The shared settings-view module sits BELOW both and cannot import
  * either arm without violating the import hierarchy.
  *
