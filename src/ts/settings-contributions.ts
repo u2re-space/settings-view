@@ -56,13 +56,14 @@ export const resolveSettingsSurface = (): SettingsContributionContext["surface"]
             return "capacitor";
         }
         if (g?.__CWS_NATIVE__ === true) return "native";
-        // INVARIANT: md.u2re.space / /markdown/ is a document PWA — not CWSP Control.
-        if (
-            typeof document !== "undefined" &&
-            String(document.documentElement?.dataset?.cwspSurface || "").toLowerCase() ===
-                "cw-markdown"
-        ) {
-            return "markdown";
+        // INVARIANT: document / markdown PWAs are not CWSP Control (no CWSP / Extension tabs).
+        if (typeof document !== "undefined") {
+            const surface = String(
+                document.documentElement?.dataset?.cwspSurface || ""
+            ).toLowerCase();
+            if (surface === "cw-markdown" || surface === "cw-document" || surface === "document") {
+                return "markdown";
+            }
         }
         // Neutralino/WebNative still report contribution surface as "web" (no webnative enum).
         if (typeof document !== "undefined") return "web";
