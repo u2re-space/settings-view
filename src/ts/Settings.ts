@@ -94,7 +94,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         }
     };
 
-    const root = H`<div class="view-settings" data-view="settings">
+    const root = H`<div class="view-settings" data-view="settings" style="padding: 1rem;">
     ${createSettingsHeader()}
     <div class="settings-screen__body">
       ${createAppearanceSection()}

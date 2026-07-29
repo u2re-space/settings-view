@@ -64,6 +64,21 @@ export const resolveSettingsSurface = (): SettingsContributionContext["surface"]
             if (surface === "cw-markdown" || surface === "cw-document" || surface === "document") {
                 return "markdown";
             }
+            if (
+                surface === "environment" ||
+                surface === "cw-environment" ||
+                surface === "cwsp-shell"
+            ) {
+                return "environment";
+            }
+            // WHY: environment-shell host marks itself when dataset surface is unset.
+            if (
+                document.querySelector?.(
+                    ".env-shell-root[data-shell='environment'], env-shell-container[data-shell='environment']"
+                )
+            ) {
+                return "environment";
+            }
         }
         // Neutralino/WebNative still report contribution surface as "web" (no webnative enum).
         if (typeof document !== "undefined") return "web";

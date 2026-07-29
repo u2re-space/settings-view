@@ -95,12 +95,14 @@
             border-block-end: 1px solid var(--sv-divider);
             flex-shrink: 0;
             min-inline-size: 0;
+            overflow: visible;
         }
 
         .settings-screen__title {
             font-weight: 600;
             letter-spacing: -0.015em;
             font-size: clamp(1.05rem, 2.5cqi, 1.35rem);
+            overflow: visible;
         }
 
         @media (min-width: 720px) {
@@ -109,10 +111,12 @@
                 flex-wrap: wrap;
                 align-items: center;
                 justify-content: space-between;
+                overflow: visible;
             }
 
             .settings-screen__top .settings-tab-actions {
                 flex: 1;
+                overflow: visible;
                 justify-content: flex-end;
             }
         }
@@ -150,9 +154,10 @@
             flex-shrink: 0;
             padding-block: 0.75rem;
             padding-inline: 0.25rem;
-            border-block-start: 1px solid var(--sv-divider);
-            background: color-mix(in oklab, var(--sv-surface-1) 85%, var(--sv-bg));
-            box-shadow: 0 -10px 28px color-mix(in oklab, var(--sv-fg) 4%, transparent);
+            /*border-block-start: 1px solid var(--sv-divider);*/
+            /*background: color-mix(in oklab, var(--sv-surface-1) 85%, var(--sv-bg));
+            box-shadow: 0 -10px 28px color-mix(in oklab, var(--sv-fg) 4%, transparent);*/
+            background: transparent;
         }
 
         /* ── tabs ── */
@@ -171,6 +176,7 @@
             pointer-events: auto;
             position: relative;
             z-index: 1;
+            overflow: visible;
         }
 
         .settings-tab-btn {
