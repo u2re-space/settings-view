@@ -327,16 +327,27 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         attachSettingsInlineStylesWhenConnected(root);
     };
 
-    /* Direct handlers: tab strip sits under shell shadow / CRX options UI; delegation misses some hits. */
-    for (const tabEl of root.querySelectorAll<HTMLButtonElement>(
-        '[data-settings-tabs] button[type="button"][data-action="switch-settings-tab"][data-tab]'
-    )) {
-        tabEl.addEventListener("click", (e) => {
+    /*
+     * WHY: One-shot per-button listeners die when H/lure or contributions re-stamp the tab strip
+     * (and ui-window remounts can orphan them). Capture delegation on the stable root keeps
+     * switch-settings-tab alive for built-in and contributed tabs.
+     */
+    root.addEventListener(
+        "click",
+        (e) => {
+            const t = eventTargetElement(e);
+            const tabBtn = t?.closest?.(
+                '[data-action="switch-settings-tab"][data-tab]'
+            ) as HTMLElement | null;
+            if (!tabBtn || !root.contains(tabBtn)) return;
             e.preventDefault();
             e.stopPropagation();
-            switchSettingsTab(tabEl.getAttribute("data-tab") || defaultSettingsTabForProfile(settingsProfile));
-        });
-    }
+            switchSettingsTab(
+                tabBtn.getAttribute("data-tab") || defaultSettingsTabForProfile(settingsProfile)
+            );
+        },
+        true
+    );
 
     const resolveInitialTab = (raw?: string): string => {
         const fallback = defaultSettingsTabForProfile(settingsProfile);
