@@ -47,6 +47,12 @@
         font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
         background-color: var(--sv-bg);
         color: var(--sv-fg);
+        /*
+         * WHY: ui-window host can carry `pointer-events: none` (setVisible / hidden-window) or
+         * inherit it from a constructed sheet; pin `auto` on the view root so embedded settings
+         * tabs + body stay clickable even when the host chain is temporarily non-interactive.
+         */
+        pointer-events: auto;
 
         *,
         *::before,
@@ -216,6 +222,10 @@
          * `.is-active` + `[hidden]` with !important so inactive siblings never paint.
          */
         .settings-tab-panel {
+            & {
+                pointer-events: auto;
+            }
+
             &[hidden],
             &:not(.is-active) {
                 display: none !important;
@@ -262,6 +272,7 @@
             inline-size: stretch;
             font-size: 0.75rem;
             margin: 0;
+            pointer-events: auto;
 
             & > span {
                 font-size: 0.75rem;
@@ -310,15 +321,15 @@
 
         select.form-select,
         select.form-input {
-            appearance: none;
             padding-inline-end: 2rem;
-            background-image: linear-gradient(45deg, transparent 50%, var(--sv-muted) 50%),
-                linear-gradient(135deg, var(--sv-muted) 50%, transparent 50%);
+            /*background-image: linear-gradient(45deg, transparent 50%, var(--sv-muted) 50%),
+                linear-gradient(135deg, var(--sv-muted) 50%, transparent 50%);*/
             background-position:
                 calc(100% - 14px) calc(50% - 2px),
                 calc(100% - 9px) calc(50% - 2px);
             background-size: 5px 5px;
             background-repeat: no-repeat;
+            pointer-events: auto;
         }
 
         /* ── buttons ── */

@@ -324,7 +324,8 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             }
             el.classList.toggle("is-active", isActive);
         }
-        attachSettingsInlineStylesWhenConnected(root);
+        // NOTE: styles are attached once during init (createSettingsView + onShow).
+        // Re-attaching on every tab switch caused unnecessary reflow.
     };
 
     /*

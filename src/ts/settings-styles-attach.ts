@@ -35,12 +35,13 @@ const normalizeInlineSettingsCss = (raw: string): string => {
  * INVARIANT: only `.is-active` tab panels paint (`.card { display:flex }` must not reveal siblings).
  */
 const CRITICAL_SETTINGS_CSS = `
-.view-settings{display:grid!important;grid-template-rows:auto minmax(0,1fr) auto!important;block-size:100%!important;min-block-size:0!important;overflow:hidden!important}
-.view-settings .settings-screen__body{display:flex!important;flex-direction:column!important;min-block-size:0!important;overflow:auto!important;-webkit-overflow-scrolling:touch}
+.view-settings{display:grid!important;grid-template-rows:auto minmax(0,1fr) auto!important;block-size:100%!important;min-block-size:0!important;overflow:hidden!important;pointer-events:auto!important}
+.view-settings .settings-screen__top{pointer-events:auto!important}
+.view-settings .settings-screen__body{display:flex!important;flex-direction:column!important;min-block-size:0!important;overflow:auto!important;-webkit-overflow-scrolling:touch;pointer-events:auto!important}
 .view-settings [data-tab-panel]:not(.is-active),.view-settings [data-tab-panel][hidden]{display:none!important}
-.view-settings [data-tab-panel].is-active:not([hidden]){display:flex!important;flex-direction:column!important;gap:.75rem!important}
-.view-settings .field,.view-settings .form-input,.view-settings .form-select{pointer-events:auto!important}
-.view-settings .settings-tab-btn{pointer-events:auto!important;cursor:pointer!important}
+.view-settings [data-tab-panel].is-active:not([hidden]){display:flex!important;flex-direction:column!important;gap:.75rem!important;pointer-events:auto!important}
+.view-settings .field,.view-settings .form-input,.view-settings .form-select,.view-settings .btn,.view-settings .card{pointer-events:auto!important}
+.view-settings .settings-tab-actions,.view-settings .settings-tab-btn{pointer-events:auto!important;cursor:pointer!important}
 `;
 
 /** Attach Settings.scss to a `.view-settings` host (works in light DOM + open shadow roots). */
