@@ -24,8 +24,22 @@
         --sv-outline: var(--color-outline-variant, light-dark(#c5cdd8, #3d4755));
         --sv-surface-1: var(--color-surface-container-low, light-dark(#ffffff, #171c24));
         --sv-surface-2: var(--color-surface-container, light-dark(#f4f6fa, #1c232d));
-        --sv-primary: var(--color-primary, #007acc);
-        --sv-on-primary: var(--color-on-primary, #ffffff);
+        --sv-primary: var(--color-primary, #00a3ad);
+        /*
+         * WHY: Wallpaper seed mid-L teal reads dull as solid CTA fill on dark chrome.
+         * Brighten filled tabs/Save via --u2-color-mod (light index on dark scheme).
+         */
+        --sv-accent: light-dark(
+            --u2-color-mod(var(--sv-primary), 550),
+            --u2-color-mod(var(--sv-primary), 400)
+        );
+        --sv-on-primary: var(
+            --color-on-primary,
+            light-dark(
+                --u2-color-mod(var(--sv-primary), 40),
+                --u2-color-mod(var(--sv-primary), 940)
+            )
+        );
         --sv-danger: var(--color-error, #d32f2f);
         --sv-divider: color-mix(in oklab, var(--sv-outline) 35%, transparent);
         --sv-ring: color-mix(in oklab, var(--sv-outline) 55%, transparent);
@@ -211,11 +225,11 @@
             }
 
             &.is-active {
-                background: var(--sv-primary);
+                background: var(--sv-accent, var(--sv-primary));
                 color: var(--sv-on-primary);
                 box-shadow:
-                    0 2px 12px color-mix(in oklab, var(--sv-primary) 28%, transparent),
-                    0 0 0 1px color-mix(in oklab, var(--sv-primary) 40%, transparent);
+                    0 2px 16px color-mix(in oklab, var(--sv-accent, var(--sv-primary)) 42%, transparent),
+                    0 0 0 1px color-mix(in oklab, var(--sv-accent, var(--sv-primary)) 55%, transparent);
             }
         }
 
@@ -362,14 +376,14 @@
             }
 
             &.primary {
-                background: var(--sv-primary);
+                background: var(--sv-accent, var(--sv-primary));
                 color: var(--sv-on-primary);
                 box-shadow:
-                    0 2px 12px color-mix(in oklab, var(--sv-primary) 26%, transparent),
-                    0 0 0 1px color-mix(in oklab, var(--sv-primary) 45%, transparent);
+                    0 2px 16px color-mix(in oklab, var(--sv-accent, var(--sv-primary)) 40%, transparent),
+                    0 0 0 1px color-mix(in oklab, var(--sv-accent, var(--sv-primary)) 55%, transparent);
 
                 &:hover {
-                    filter: brightness(1.06);
+                    filter: brightness(1.1);
                 }
             }
 
@@ -564,12 +578,12 @@
             cursor: pointer;
 
             &--primary {
-                background: var(--sv-primary);
-                border-color: color-mix(in oklab, var(--sv-primary) 30%, #000);
+                background: var(--sv-accent, var(--sv-primary));
+                border-color: color-mix(in oklab, var(--sv-accent, var(--sv-primary)) 35%, transparent);
                 color: var(--sv-on-primary);
 
                 &:hover {
-                    filter: brightness(1.06);
+                    filter: brightness(1.1);
                 }
             }
         }
