@@ -24,7 +24,8 @@
         --sv-outline: var(--color-outline-variant, light-dark(#c5cdd8, #3d4755));
         --sv-surface-1: var(--color-surface-container-low, light-dark(#ffffff, #171c24));
         --sv-surface-2: var(--color-surface-container, light-dark(#f4f6fa, #1c232d));
-        --sv-primary: var(--color-primary, #00a3ad);
+        /* WHY: Box default = familiar veela blue; wallpaper --color-primary overrides when set. */
+        --sv-primary: var(--color-primary, #5a7fff);
         /*
          * WHY: Wallpaper seed mid-L teal reads dull as solid CTA fill on dark chrome.
          * Brighten filled tabs/Save via --u2-color-mod (light index on dark scheme).
@@ -67,6 +68,7 @@
          * tabs + body stay clickable even when the host chain is temporarily non-interactive.
          */
         pointer-events: auto;
+        touch-action: pan-x pan-y;
 
         *,
         *::before,
@@ -153,6 +155,7 @@
             padding-block: 0.75rem;
             scrollbar-width: thin;
             scrollbar-color: var(--sv-outline) transparent;
+            touch-action: pan-y;
         }
 
         .settings-screen__body::-webkit-scrollbar {
@@ -240,7 +243,7 @@
         .settings-tab-panel {
             & {
                 pointer-events: auto;
-                touch-action: pan-x;
+                touch-action: pan-x pan-y;
                 scrollbar-width: none;
             }
 
