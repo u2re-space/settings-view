@@ -174,7 +174,7 @@
             align-items: center;
             inline-size: stretch;
             max-inline-size: stretch;
-            overflow-x: auto;
+            overflow-x: auto !important;
             scrollbar-width: thin;
             scrollbar-color: var(--sv-outline) transparent;
             container-type: inline-size;
@@ -183,6 +183,8 @@
             position: relative;
             z-index: 1;
             overflow: visible;
+            touch-action: pan-x;
+            scrollbar-width: none;
         }
 
         .settings-tab-btn {
@@ -224,6 +226,8 @@
         .settings-tab-panel {
             & {
                 pointer-events: auto;
+                touch-action: pan-x;
+                scrollbar-width: none;
             }
 
             &[hidden],
