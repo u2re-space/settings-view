@@ -18,6 +18,7 @@
         color-scheme: inherit;
 
         /* ── semantic tokens (Veela when inherited, else self-sufficient) ── */
+        --base-color-neutralized: color-mix(in oklab, var(--base-color) 60%, gray);
         --sv-bg: var(--color-surface, light-dark(#eef1f6, #0f1318));
         --sv-fg: var(--color-on-surface, light-dark(#12151a, #e8edf2));
         --sv-muted: var(--color-on-surface-variant, light-dark(#5c6570, #a8b0bc));
@@ -25,7 +26,7 @@
         --sv-surface-1: var(--color-surface-container-low, light-dark(#ffffff, #171c24));
         --sv-surface-2: var(--color-surface-container, light-dark(#f4f6fa, #1c232d));
         /* WHY: Box default = familiar veela blue; wallpaper --color-primary overrides when set. */
-        --sv-primary: var(--color-primary, #5a7fff);
+        --sv-primary: var(--base-color, var(--color-primary, #5a7fff));
         /*
          * WHY: Wallpaper seed mid-L teal reads dull as solid CTA fill on dark chrome.
          * Brighten filled tabs/Save via --u2-color-mod (light index on dark scheme).
