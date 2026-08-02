@@ -7,11 +7,24 @@
 @layer settings-view {
     /* Light DOM (md.u2re.space) + host-context for open shadow shells. */
     :is(html[data-theme="light"] .view-settings, :host-context(html[data-theme="light"]) .view-settings) {
-        color-scheme: light;
+        color-scheme: light only;
+        /* WHY: Force readable labels even if an ancestor still carries dark on-surface. */
+        --sv-bg: var(--color-surface, --u2-color-mod(var(--base-color, #5a7fff), 60));
+        --sv-fg: var(--color-on-surface, --u2-color-mod(var(--base-color, #5a7fff), 900));
+        --sv-muted: var(--color-on-surface-variant, --u2-color-mod(var(--base-color, #5a7fff), 700));
+        --sv-outline: var(--color-outline-variant, --u2-color-mod(var(--base-color, #5a7fff), 400));
+        --sv-surface-1: var(--color-surface-container-low, --u2-color-mod(var(--base-color, #5a7fff), 100));
+        --sv-surface-2: var(--color-surface-container, --u2-color-mod(var(--base-color, #5a7fff), 160));
     }
 
     :is(html[data-theme="dark"] .view-settings, :host-context(html[data-theme="dark"]) .view-settings) {
-        color-scheme: dark;
+        color-scheme: dark only;
+        --sv-bg: var(--color-surface, --u2-color-mod(var(--base-color, #5a7fff), 940));
+        --sv-fg: var(--color-on-surface, --u2-color-mod(var(--base-color, #5a7fff), 100));
+        --sv-muted: var(--color-on-surface-variant, --u2-color-mod(var(--base-color, #5a7fff), 280));
+        --sv-outline: var(--color-outline-variant, --u2-color-mod(var(--base-color, #5a7fff), 640));
+        --sv-surface-1: var(--color-surface-container-low, --u2-color-mod(var(--base-color, #5a7fff), 880));
+        --sv-surface-2: var(--color-surface-container, --u2-color-mod(var(--base-color, #5a7fff), 840));
     }
 
     .view-settings {
