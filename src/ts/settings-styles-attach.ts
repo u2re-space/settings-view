@@ -1,8 +1,8 @@
 /*
  * Filename: settings-styles-attach.ts
  * FullPath: modules/views/settings-view/src/ts/settings-styles-attach.ts
- * Change date and time: 18.10.00_30.07.2026
- * Reason for changes: Unwrap @layer even when Vite prefixes @charset/comments; tab panels active-only.
+ * Change date and time: 12.50.00_03.08.2026
+ * Reason for changes: Critical CSS keeps settings tab strip full-width (was collapsing to 0px).
  */
 
 // @ts-ignore — Vite inline SCSS
@@ -35,13 +35,14 @@ const normalizeInlineSettingsCss = (raw: string): string => {
  * INVARIANT: only `.is-active` tab panels paint (`.card { display:flex }` must not reveal siblings).
  */
 const CRITICAL_SETTINGS_CSS = `
-.view-settings{display:grid!important;grid-template-rows:auto minmax(0,1fr) auto!important;block-size:100%!important;min-block-size:0!important;overflow:hidden!important;pointer-events:auto!important}
-.view-settings .settings-screen__top{pointer-events:auto!important}
+.view-settings{display:grid!important;grid-template-rows:auto minmax(0,1fr) auto!important;grid-template-columns:minmax(0,1fr)!important;inline-size:100%!important;block-size:100%!important;min-block-size:0!important;overflow:hidden!important;pointer-events:auto!important;container-type:inline-size}
+.view-settings .settings-screen__top{display:flex!important;flex-direction:column!important;align-items:stretch!important;inline-size:100%!important;max-inline-size:100%!important;min-inline-size:0!important;pointer-events:auto!important}
+.view-settings .settings-tab-actions{display:flex!important;flex-wrap:nowrap!important;inline-size:100%!important;max-inline-size:100%!important;min-inline-size:0!important;overflow-x:auto!important;overflow-y:hidden!important;pointer-events:auto!important}
 .view-settings .settings-screen__body{display:flex!important;flex-direction:column!important;min-block-size:0!important;overflow:auto!important;-webkit-overflow-scrolling:touch;pointer-events:auto!important}
 .view-settings [data-tab-panel]:not(.is-active),.view-settings [data-tab-panel][hidden]{display:none!important}
 .view-settings [data-tab-panel].is-active:not([hidden]){display:flex!important;flex-direction:column!important;gap:.75rem!important;pointer-events:auto!important}
 .view-settings .field,.view-settings .form-input,.view-settings .form-select,.view-settings .btn,.view-settings .card{pointer-events:auto!important}
-.view-settings .settings-tab-actions,.view-settings .settings-tab-btn{pointer-events:auto!important;cursor:pointer!important}
+.view-settings .settings-tab-btn{pointer-events:auto!important;cursor:pointer!important;flex:0 0 auto!important}
 `;
 
 /** Attach Settings.scss to a `.view-settings` host (works in light DOM + open shadow roots). */

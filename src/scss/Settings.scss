@@ -73,6 +73,9 @@
         padding: clamp(0.5rem, 2cqi, 1rem);
         overflow: hidden;
         text-align: start;
+        /* WHY: @container rules below must size against the view, not a collapsed tab strip. */
+        container-type: inline-size;
+        container-name: settings-view;
         font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
         background-color: var(--sv-bg);
         color: var(--sv-fg);
@@ -130,6 +133,9 @@
             padding-block-end: 0.875rem;
             border-block-end: 1px solid var(--sv-divider);
             flex-shrink: 0;
+            /* WHY: must span the grid track — shrink-to-title collapsed the tab strip to 0px. */
+            inline-size: 100%;
+            max-inline-size: 100%;
             min-inline-size: 0;
             overflow: visible;
         }
@@ -139,27 +145,15 @@
             letter-spacing: -0.015em;
             font-size: clamp(1.05rem, 2.5cqi, 1.35rem);
             overflow: visible;
+            flex: 0 0 auto;
         }
 
-        @media (min-width: 720px) {
-            .settings-screen__top {
-                flex-direction: row;
-                flex-wrap: wrap;
-                align-items: center;
-                justify-content: space-between;
-                overflow: visible;
-            }
-
-            .settings-screen__top .settings-tab-actions {
-                flex: 1;
-                overflow: visible;
-                justify-content: start;
-
-                @container (min-inline-size: 360px) {
-                    justify-content: end;
-                }
-            }
-        }
+        /*
+         * WHY: Do not switch to flex-row + flex:1 on the tab strip at ≥720px.
+         * That layout collapsed `.settings-tab-actions` to width 0 (tabs painted off-screen
+         * with negative left, clipped by `.view-settings { overflow: hidden }`).
+         * Keep title above tabs; strip always gets full row width + horizontal scroll.
+         */
 
         .settings-screen__body {
             min-block-size: 0;
@@ -207,19 +201,20 @@
             flex-wrap: nowrap;
             gap: 0.375rem;
             align-items: center;
-            inline-size: stretch;
-            max-inline-size: stretch;
-            overflow-x: auto !important;
+            inline-size: 100%;
+            max-inline-size: 100%;
+            min-inline-size: 0;
+            flex: 0 0 auto;
+            /* WHY: horizontal scroll when many tabs — never `overflow: visible` (hides clipped tabs). */
+            overflow-x: auto;
+            overflow-y: hidden;
             scrollbar-width: thin;
             scrollbar-color: var(--sv-outline) transparent;
-            container-type: inline-size;
             /* CRX / layered shells: ensure the tab strip participates in hit-testing */
             pointer-events: auto;
             position: relative;
             z-index: 1;
-            overflow: visible;
             touch-action: pan-x;
-            scrollbar-width: none;
         }
 
         .settings-tab-btn {
@@ -291,7 +286,7 @@
             background: color-mix(in oklab, var(--sv-surface-2) 98%, var(--sv-bg));
             /*box-shadow: var(--sv-elev), 0 0 0 1px color-mix(in oklab, var(--sv-outline) 14%, transparent);*/
 
-            @container (max-inline-size: 480px) {
+            @container settings-view (max-inline-size: 480px) {
                 padding: 0.875rem;
                 border-radius: 14px;
             }
@@ -771,11 +766,11 @@
         }
 
         /* ── touch targets & responsive footer ── */
-        @container (max-inline-size: 1024px) {
+        @container settings-view (max-inline-size: 1024px) {
             padding: 0.65rem;
         }
 
-        @container (max-inline-size: 560px) {
+        @container settings-view (max-inline-size: 560px) {
             .settings-tab-actions {
                 gap: 0.3rem;
             }
@@ -786,7 +781,7 @@
             }
         }
 
-        @container (max-inline-size: 480px) {
+        @container settings-view (max-inline-size: 480px) {
             padding: 0.45rem;
 
             .settings-screen__title {
