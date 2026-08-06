@@ -470,13 +470,13 @@
             max-inline-size: stretch;
 
             &.note--ok {
-                color: color-mix(in oklab, var(--sv-accent, #3ecf8e) 70%, var(--sv-fg, light-dark(#12151a, #e8edf2)));
+                color: color-mix(in oklab, var(--color-success, #3ecf8e) 70%, var(--sv-fg, light-dark(#12151a, #e8edf2)));
             }
             &.note--warn {
-                color: color-mix(in oklab, #e6a700 75%, var(--sv-fg, light-dark(#12151a, #e8edf2)));
+                color: color-mix(in oklab, var(--color-warning, #e6a700) 75%, var(--sv-fg, light-dark(#12151a, #e8edf2)));
             }
             &.note--err {
-                color: color-mix(in oklab, #e05252 80%, var(--sv-fg, light-dark(#12151a, #e8edf2)));
+                color: color-mix(in oklab, var(--color-error, #e05252) 80%, var(--sv-fg, light-dark(#12151a, #e8edf2)));
             }
         }
 
