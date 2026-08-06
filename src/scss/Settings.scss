@@ -401,8 +401,8 @@
             border: none;
             border-radius: 999px;
             background: color-mix(in oklab, var(--sv-surface-1) 90%, transparent);
-            color: var(--sv-fg);
-            color: contrast-color(var(--sv-surface-1));
+            color: var(--sv-fg, var(--color-on-surface));
+            color: contrast-color(var(--sv-surface-1, var(--color-surface)));
             font-size: 0.8125rem;
             font-weight: 500;
             cursor: pointer;
@@ -641,7 +641,7 @@
             cursor: pointer;
             max-inline-size: stretch;
             color: var(--sv-fg);
-            color: contrast-color(var(--sv-accent, var(--sv-primary)));
+            color: contrast-color(var(--sv-surface-1, var(--color-surface)));
 
             &--primary {
                 background: var(--sv-accent, var(--sv-primary));
