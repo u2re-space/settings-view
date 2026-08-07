@@ -4,7 +4,7 @@
  * Change date and time: 10.20.00_20.07.2026
  * Reason for changes: Fallback Extension panel — shell.localHubUrl (≠ CWSP Relay).
  */
-import { H } from "fest/lure";
+import { H } from "@fest-lib/lure";
 
 export const createExtensionSection = () => H`<section class="card settings-tab-panel" data-tab-panel="extension" data-section="extension" hidden>
       <h3>Extension</h3>

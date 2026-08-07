@@ -1,5 +1,5 @@
-import { H } from "fest/lure";
-import { observe } from "fest/object";
+import { H } from "@fest-lib/lure";
+import { observe } from "@fest-lib/object";
 import type { CustomInstruction } from "com/config/SettingsTypes";
 import {
     getInstructionRegistry,

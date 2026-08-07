@@ -4,7 +4,7 @@
  * Change date and time: 19.15.00_10.07.2026
  * Reason for changes: Ecosystem token replaces identification + control token fields.
  */
-import { H } from "fest/lure";
+import { H } from "@fest-lib/lure";
 
 /** CWSP endpoint and device identity. */
 export const createServerSection = () => H`<section class="card settings-tab-panel" data-tab-panel="server">

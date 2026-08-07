@@ -1,4 +1,4 @@
-import { H } from "fest/lure";
+import { H } from "@fest-lib/lure";
 
 export const createAppearanceSection = () => H`<section class="card settings-tab-panel" data-tab-panel="appearance">
       <h3>Appearance</h3>

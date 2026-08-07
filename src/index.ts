@@ -5,9 +5,9 @@
  * Provides application configuration UI.
  */
 
-import { H } from "fest/lure";
-import { ref } from "fest/object";
-import { removeAdopted } from "fest/dom";
+import { H } from "@fest-lib/lure";
+import { ref } from "@fest-lib/object";
+import { removeAdopted } from "@fest-lib/dom";
 import type { View, ViewOptions, ViewLifecycle, ShellContext } from "shells/types";
 import type { BaseViewOptions } from "views/types";
 import { SettingsChannelAction } from "views/apis/channel-actions";

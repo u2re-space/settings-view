@@ -1,4 +1,4 @@
-import { H } from "fest/lure";
+import { H } from "@fest-lib/lure";
 
 export const createMcpSection = () => H`<section class="card settings-tab-panel" data-tab-panel="mcp">
       <h3>MCP</h3>

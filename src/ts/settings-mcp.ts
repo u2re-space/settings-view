@@ -1,4 +1,4 @@
-import { H } from "fest/lure";
+import { H } from "@fest-lib/lure";
 import type { MCPConfig } from "com/config/SettingsTypes";
 
 export const createMcpRow = (cfg: MCPConfig) => {

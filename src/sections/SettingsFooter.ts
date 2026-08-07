@@ -1,4 +1,4 @@
-import { H } from "fest/lure";
+import { H } from "@fest-lib/lure";
 
 export const createSettingsFooter = () => H`<footer class="settings-screen__footer">
         <button class="btn primary" type="button" data-action="save">Save</button>

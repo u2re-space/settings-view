@@ -1,4 +1,4 @@
-import { H } from "fest/lure";
+import { H } from "@fest-lib/lure";
 
 /** Top title + category tabs. */
 export const createSettingsHeader = () => H`<header class="settings-screen__top">

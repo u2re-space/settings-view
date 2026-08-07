@@ -1,4 +1,4 @@
-import { H } from "fest/lure";
+import { H } from "@fest-lib/lure";
 
 export const createMarkdownSection = () => H`<section class="card settings-tab-panel" data-tab-panel="markdown">
       <h3>Markdown Viewer</h3>
