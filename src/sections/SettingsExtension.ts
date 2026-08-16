@@ -15,6 +15,6 @@ export const createExtensionSection = () => H`<section class="card settings-tab-
       <p class="field-hint">Chrome wire hub for L-110-crx only. Independent from CWSP → Relay / gateway.</p>
       <label class="field checkbox form-checkbox">
         <input type="checkbox" data-field="core.ntpEnabled" />
-        <span>Enable New Tab Page (offline Basic)</span>
+        <span>Enable New Tab Page (CWSP-shell speed dial)</span>
       </label>
     </section>` as HTMLElement;
