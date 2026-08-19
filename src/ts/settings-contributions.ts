@@ -30,7 +30,8 @@ export {
     registerCwspSettingsContribution,
     registerDeviceSettingsContribution,
     registerReaderSettingsContribution,
-    registerWorkcenterSettingsContribution
+    registerWorkcenterSettingsContribution,
+    registerWorkspaceSettingsContribution
 } from "com/config/settings/register-builtin-contributions";
 export {
     resolveSettingsShellProfile,
