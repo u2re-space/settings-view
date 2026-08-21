@@ -91,6 +91,38 @@ test("mountContributions does not render contributions filtered from the surface
     assert.equal(root.querySelector(`[data-tab-panel="${id}"]`), null);
 });
 
+test("workspace contribution embeds into Appearance without a nested tab panel", (t) => {
+    const dispose = registerSettingsContribution(contribution("workspace", {
+        render: () => {
+            const panel = document.createElement("section");
+            panel.className = "card settings-tab-panel";
+            panel.setAttribute("data-tab-panel", "workspace");
+            panel.hidden = true;
+            const field = document.createElement("label");
+            field.setAttribute("data-settings-field", "speedDialColumns");
+            field.textContent = "Columns";
+            panel.append(field);
+            return panel;
+        }
+    }));
+    t.after(dispose);
+    const root = createSettingsRoot();
+    const appearance = document.createElement("section");
+    appearance.className = "card settings-tab-panel is-active";
+    appearance.setAttribute("data-tab-panel", "appearance");
+    root.querySelector(".settings-screen__body")!.append(appearance);
+
+    mountContributions(root, webContext);
+
+    assert.equal(root.querySelector('[data-tab-panel="workspace"]'), null);
+    assert.equal(root.querySelector('[data-contributed-tab][data-tab="workspace"]'), null);
+    const wrap = root.querySelector<HTMLElement>('[data-contribution="workspace"]');
+    assert.ok(wrap, "workspace section must mount inside Appearance");
+    assert.equal(wrap.hidden, false);
+    assert.ok(appearance.contains(wrap));
+    assert.ok(wrap.querySelector('[data-settings-field="speedDialColumns"]'));
+});
+
 test("mountContributions is idempotent for a registered visible contribution", (t) => {
     let renderCalls = 0;
     const id = "pass-ii-idempotent-mount";

@@ -259,10 +259,10 @@
         }
 
         /*
-         * INVARIANT: panels also carry `.card { display:flex }`. Visibility must key off
-         * `.is-active` + `[hidden]` with !important so inactive siblings never paint.
+         * INVARIANT: only *body-level* tab panels hide. Nested Workspace
+         * sections live inside Appearance and must keep painting.
          */
-        .settings-tab-panel {
+        .settings-screen__body > .settings-tab-panel {
             & {
                 pointer-events: auto;
                 touch-action: pan-x pan-y;

@@ -298,8 +298,10 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
     const switchSettingsTab = (tab: string) => {
         const fallback = defaultSettingsTabForProfile(settingsProfile);
         let nextTab = tab || fallback;
-        if (!root.querySelector(`[data-tab-panel="${nextTab}"]`)) {
-            const first = root.querySelector<HTMLElement>("[data-tab-panel]");
+        const bodyPanels = () =>
+            root.querySelectorAll<HTMLElement>(".settings-screen__body > [data-tab-panel]");
+        if (![...bodyPanels()].some((el) => el.getAttribute("data-tab-panel") === nextTab)) {
+            const first = bodyPanels()[0];
             nextTab = first?.getAttribute("data-tab-panel") || fallback;
         }
         const tabRoot = root.querySelector('[data-settings-tabs]') as HTMLElement | null;
@@ -313,7 +315,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             btn.setAttribute("aria-selected", String(isActive));
         }
 
-        const panels = root.querySelectorAll('[data-tab-panel]');
+        const panels = bodyPanels();
         for (const panel of Array.from(panels)) {
             const el = panel as HTMLElement;
             const isActive = el.getAttribute("data-tab-panel") === nextTab;
@@ -1601,13 +1603,13 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
 
     const initialTab = resolveInitialTab(opts.initialTab);
     switchSettingsTab(initialTab);
-    if (!root.querySelector(`[data-tab-panel="${initialTab}"]:not([hidden])`)) {
-        const firstPanel = root.querySelector<HTMLElement>("[data-tab-panel]");
+    if (!root.querySelector(`.settings-screen__body > [data-tab-panel="${initialTab}"]:not([hidden])`)) {
+        const firstPanel = root.querySelector<HTMLElement>(".settings-screen__body > [data-tab-panel]");
         if (firstPanel) switchSettingsTab(firstPanel.getAttribute("data-tab-panel") || initialTab);
     }
     syncCustomModelVisibility();
 
-    const panelCount = root.querySelectorAll("[data-tab-panel]").length;
+    const panelCount = root.querySelectorAll(".settings-screen__body > [data-tab-panel]").length;
     const tabCount = root.querySelectorAll('[data-action="switch-settings-tab"][data-tab]').length;
     try {
         const dbg = (globalThis as { __CWSP_FRONTEND_DEBUG__?: { log: (...a: unknown[]) => void } })

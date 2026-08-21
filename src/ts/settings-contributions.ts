@@ -2,7 +2,7 @@
  * Filename: settings-contributions.ts
  * FullPath: modules/views/settings-view/src/ts/settings-contributions.ts
  * Change date and time: 13.35.00_20.07.2026
- * Reason for changes: Detect cw-markdown surface so CWSP settings stay off md.u2re.space.
+ * Reason for changes: Embed Workspace into Appearance without a nested tab-panel hide.
  */
 /**
  * Settings-view glue: mount shared contribution registry tabs into the host UI.
@@ -111,6 +111,44 @@ export const mountContributions = (root: HTMLElement, ctx: SettingsContributionC
     for (const contribution of visibleContributions(ctx)) {
         if (root.querySelector(`[data-tab-panel="${contribution.id}"]`)) continue;
 
+        /*
+         * WHY: Appearance + Workspaces are one settings page — sections only.
+         * The workspace contribution still owns grid + pages; its tab is not shown.
+         */
+        if (contribution.id === "workspace") {
+            const appearance = root.querySelector<HTMLElement>('[data-tab-panel="appearance"]');
+            if (appearance) {
+                let content: HTMLElement | null = null;
+                try {
+                    content = contribution.render(ctx);
+                } catch (error) {
+                    console.warn(`[settings] contribution '${contribution.id}' render failed:`, error);
+                }
+                if (content) {
+                    const wrap = document.createElement("div");
+                    wrap.setAttribute("data-contribution", "workspace");
+                    wrap.hidden = false;
+                    /*
+                     * INVARIANT: nested Workspace is a section, not a tab.
+                     * `[data-tab-panel]` + `.settings-tab-panel:not(.is-active)` hide
+                     * any leftover panel when Appearance is the active tab.
+                     */
+                    if (content.matches?.("[data-tab-panel]")) {
+                        content.removeAttribute("hidden");
+                        content.removeAttribute("data-tab-panel");
+                        content.classList.remove("settings-tab-panel");
+                        wrap.append(...Array.from(content.childNodes));
+                    } else {
+                        content.removeAttribute("data-tab-panel");
+                        content.classList.remove("settings-tab-panel");
+                        wrap.appendChild(content);
+                    }
+                    appearance.appendChild(wrap);
+                }
+                continue;
+            }
+        }
+
         const tab = document.createElement("button");
         tab.className = "settings-tab-btn";
         tab.type = "button";
@@ -158,7 +196,9 @@ const forEachContributionPanel = (
     cb: (contribution: SettingsContribution, panel: HTMLElement) => void
 ): void => {
     for (const contribution of visibleContributions(ctx)) {
-        const panel = root.querySelector<HTMLElement>(`[data-tab-panel="${contribution.id}"]`);
+        const panel =
+            root.querySelector<HTMLElement>(`[data-tab-panel="${contribution.id}"]`) ||
+            root.querySelector<HTMLElement>(`[data-contribution="${contribution.id}"]`);
         if (panel) cb(contribution, panel);
     }
 };
