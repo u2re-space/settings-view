@@ -132,6 +132,7 @@
             align-items: stretch;
             gap: 0.75rem;
             padding-block-end: 0.875rem;
+            background: var(--sv-surface-2, var(--sv-bg));
             border-block-end: 1px solid var(--sv-divider);
             flex-shrink: 0;
             /* WHY: must span the grid track — shrink-to-title collapsed the tab strip to 0px. */
@@ -346,6 +347,43 @@
             max-inline-size: stretch;
         }
 
+        .appearance-swatches {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+        }
+
+        .appearance-swatch {
+            inline-size: 1.75rem;
+            block-size: 1.75rem;
+            border-radius: 999px;
+            border: 2px solid color-mix(in oklab, var(--sv-fg, #e8edf2) 18%, transparent);
+            padding: 0;
+            cursor: pointer;
+            background: var(--color-primary, #5a9ec8);
+        }
+
+        .appearance-swatch[aria-selected="true"] {
+            outline: 2px solid var(--sv-accent, var(--color-primary, #5a9ec8));
+            outline-offset: 2px;
+        }
+
+        .appearance-hue {
+            display: grid;
+            gap: 0.25rem;
+        }
+
+        .appearance-hue__range {
+            inline-size: 100%;
+            accent-color: var(--color-primary, #5a9ec8);
+        }
+
+        .appearance-color-input {
+            inline-size: 3.25rem;
+            block-size: 2rem;
+            padding: 0.15rem;
+        }
+
         .form-input,
         .form-select {
             display: block;
@@ -356,6 +394,8 @@
             /*border: 1px solid color-mix(in oklab, var(--sv-outline, light-dark(#c5cdd8, #3d4755)) 45%, transparent);*/
             background: var(--sv-surface-2, light-dark(#ffffff, #171c24));
             color: var(--sv-fg, light-dark(#12151a, #e8edf2));
+            -webkit-text-fill-color: var(--sv-fg, light-dark(#12151a, #e8edf2));
+            caret-color: var(--sv-fg, light-dark(#12151a, #e8edf2));
             font-size: 0.875rem;
             line-height: 1.25;
             outline: none;

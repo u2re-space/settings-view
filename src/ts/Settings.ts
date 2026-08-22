@@ -33,7 +33,14 @@ import {
 import { collectMcpConfigurations, createMcpRow, renderMcpConfigurations } from "./settings-mcp";
 import { createSettingsFooter } from "../sections/SettingsFooter";
 import { createSettingsHeader } from "../sections/SettingsHeader";
-import { createAppearanceSection } from "../sections/SettingsAppearance";
+import {
+    createAppearanceSection,
+    hexFromHue,
+    readAppearanceColor,
+    readAppearanceColorSource,
+    syncAppearanceColorControls,
+    syncAppearanceColorSource
+} from "../sections/SettingsAppearance";
 import { createMarkdownSection } from "../sections/SettingsMarkdown";
 import { createAiSection } from "../sections/SettingsAI";
 import { createMcpSection } from "../sections/SettingsMcp";
@@ -188,6 +195,10 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
     const speechLanguage = field('[data-field="speech.language"]') as HTMLSelectElement | null;
     const theme = field('[data-field="appearance.theme"]') as HTMLSelectElement | null;
     const fontSize = field('[data-field="appearance.fontSize"]') as HTMLSelectElement | null;
+    const appearanceColorField = root.querySelector("[data-appearance-color]") as HTMLElement | null;
+    const appearanceColorSource = field('[data-field="appearance.colorSource"]') as HTMLSelectElement | null;
+    const appearanceHue = field('[data-field="appearance.hue"]') as HTMLInputElement | null;
+    const appearanceColor = field('[data-field="appearance.color"]') as HTMLInputElement | null;
     const markdownPreset = field('[data-field="appearance.markdown.preset"]') as HTMLSelectElement | null;
     const markdownFontFamily = field('[data-field="appearance.markdown.fontFamily"]') as HTMLSelectElement | null;
     const markdownFontSizePx = field('[data-field="appearance.markdown.fontSizePx"]') as HTMLInputElement | null;
@@ -482,6 +493,11 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             if (speechLanguage) speechLanguage.value = (s?.speech?.language || "en-US") as any;
             if (theme) theme.value = (s?.appearance?.theme || "auto") as any;
             if (fontSize) fontSize.value = (s?.appearance?.fontSize || "medium") as any;
+            if (appearanceColorField) {
+                appearanceColorField.hidden = false;
+                syncAppearanceColorSource(root, String(s?.appearance?.colorSource || "auto"));
+                syncAppearanceColorControls(root, String(s?.appearance?.color || ""));
+            }
             if (markdownPreset) markdownPreset.value = (s?.appearance?.markdown?.preset || "default") as any;
             if (markdownFontFamily) markdownFontFamily.value = (s?.appearance?.markdown?.fontFamily || "system") as any;
             if (markdownFontSizePx) markdownFontSizePx.value = String(s?.appearance?.markdown?.fontSizePx ?? 16);
@@ -618,6 +634,52 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
     showKey?.addEventListener("change", () => {
         if (!apiKey || !showKey) return;
         apiKey.type = showKey.checked ? "text" : "password";
+    });
+
+    const previewAppearanceColor = (patch: { color?: string; colorSource?: string }) => {
+        void (async () => {
+            try {
+                const cur = await loadSettings();
+                applyTheme({
+                    ...cur,
+                    appearance: { ...(cur.appearance || {}), ...patch }
+                });
+            } catch {
+                applyTheme({ appearance: { theme: "auto", fontSize: "medium", ...patch } } as AppSettings);
+            }
+        })();
+    };
+
+    appearanceColorField?.addEventListener("click", (ev) => {
+        const btn = (ev.target as HTMLElement | null)?.closest?.(".appearance-swatch") as HTMLButtonElement | null;
+        if (!btn) return;
+        const next = btn.dataset.color ?? "";
+        syncAppearanceColorSource(root, "custom");
+        syncAppearanceColorControls(root, next);
+        previewAppearanceColor({ color: next, colorSource: "custom" });
+    });
+
+    appearanceColorSource?.addEventListener("change", () => {
+        const next = readAppearanceColorSource(root);
+        syncAppearanceColorSource(root, next);
+        previewAppearanceColor({
+            colorSource: next,
+            color: next === "custom" ? readAppearanceColor(root) : undefined
+        });
+    });
+
+    appearanceHue?.addEventListener("input", () => {
+        const next = hexFromHue(Number(appearanceHue.value));
+        syncAppearanceColorSource(root, "custom");
+        syncAppearanceColorControls(root, next);
+        previewAppearanceColor({ color: next, colorSource: "custom" });
+    });
+
+    appearanceColor?.addEventListener("input", () => {
+        const next = appearanceColor.value || "";
+        syncAppearanceColorSource(root, "custom");
+        syncAppearanceColorControls(root, next);
+        previewAppearanceColor({ color: next, colorSource: "custom" });
     });
 
     theme?.addEventListener("change", () => {
@@ -1343,6 +1405,8 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                         ? {
                               theme: (theme?.value as any) || "auto",
                               fontSize: (fontSize?.value as any) || "medium",
+                              color: readAppearanceColor(root),
+                              colorSource: readAppearanceColorSource(root),
                               markdown: {
                                   preset: (markdownPreset?.value as any) || "default",
                                   fontFamily: (markdownFontFamily?.value as any) || "system",
