@@ -131,7 +131,7 @@
             flex-direction: column;
             align-items: stretch;
             gap: 0.75rem;
-            padding-block-end: 0.875rem;
+            padding-block-end: 0px;
             background: var(--sv-surface-2, var(--sv-bg));
             border-block-end: 1px solid var(--sv-divider);
             flex-shrink: 0;
@@ -222,6 +222,17 @@
             z-index: 1;
             touch-action: pan-x;
             max-inline-size: stretch;
+            /* WHY: keep the horizontal scrollbar off the pill tabs. */
+            padding-block-end: 0.5rem;
+        }
+
+        .settings-tab-actions::-webkit-scrollbar {
+            block-size: 4px;
+        }
+
+        .settings-tab-actions::-webkit-scrollbar-thumb {
+            background: color-mix(in oklab, var(--sv-accent, var(--sv-primary, #5a7fff)) 70%, transparent);
+            border-radius: 99px;
         }
 
         .settings-tab-btn {
@@ -505,6 +516,10 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: normal;
+
+            &:empty {
+                display: none;
+            }
             line-height: 1.35;
             pointer-events: none;
             max-inline-size: stretch;
@@ -901,6 +916,7 @@
 
         @container settings-view (max-inline-size: 480px) {
             padding: 0.45rem;
+            padding-block-end: 0.15rem;
 
             .settings-screen__title {
                 display: none;
@@ -916,8 +932,11 @@
             .settings-screen__footer {
                 flex-direction: column-reverse;
                 align-items: stretch;
-                gap: 0.5rem;
+                gap: 0.35rem;
                 max-inline-size: stretch;
+                padding-block: 0.35rem 0.2rem;
+                /* WHY: window is full-bleed; leave the Home FAB corner free. */
+                padding-inline-end: 3.25rem;
 
                 .btn.primary {
                     inline-size: 100%;

@@ -248,6 +248,8 @@ export class SettingsView implements View {
             typeof (globalThis as unknown as { chrome?: { runtime?: { id?: string } } }).chrome !== "undefined" &&
             Boolean((globalThis as unknown as { chrome?: { runtime?: { id?: string } } }).chrome?.runtime?.id);
 
+        if (this.element) return this.element;
+
         this.element = createSettingsView({
             isExtension: isExtensionRuntime,
             initialTab: options?.params?.tab || options?.params?.focus,

@@ -73,7 +73,17 @@ export type SettingsViewOptions = {
     onTheme?: (theme: AppSettings["appearance"] extends { theme?: infer T } ? (T extends string ? T : "auto") : "auto") => void;
 };
 
+/** PERF: reuse the built tree on reopen — first createSettingsView is the expensive click. */
+let cachedSettingsViewRoot: HTMLElement | null = null;
+
 export const createSettingsView = (opts: SettingsViewOptions) => {
+    if (cachedSettingsViewRoot) {
+        if (opts.initialTab) {
+            cachedSettingsViewRoot.dispatchEvent(new CustomEvent("cwsp-settings-resync"));
+        }
+        return cachedSettingsViewRoot;
+    }
+
     let note: HTMLElement | null = null;
     let noteTimer: ReturnType<typeof setTimeout> | null = null;
     const noteClearMs = () => {
@@ -101,7 +111,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         }
     };
 
-    const root = H`<div class="view-settings" data-view="settings" style="padding: 1rem;">
+    const root = H`<div class="view-settings" data-view="settings">
     ${createSettingsHeader()}
     <div class="settings-screen__body">
       ${createAppearanceSection()}
@@ -1662,7 +1672,13 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         if (extSection) extSection.hidden = false;
         if (extTab) extTab.hidden = false;
         const extNote = H`<div class="ext-note">Extension mode: settings are stored in <code>chrome.storage.local</code>.</div>` as HTMLElement;
-        root.append(extNote);
+        
+        const hasFooter = root.querySelector(".settings-screen__footer");
+        if (hasFooter) {
+            hasFooter?.insertAdjacentElement?.("beforebegin", extNote);
+        } else {
+            root.append(extNote);
+        }
     }
 
     const initialTab = resolveInitialTab(opts.initialTab);
@@ -1701,5 +1717,6 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         switchSettingsTab(root.querySelector("[data-settings-tabs]")?.getAttribute("data-active-tab") || initialTab);
     });
 
+    cachedSettingsViewRoot = root;
     return root;
 };

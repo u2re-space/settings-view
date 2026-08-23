@@ -45,10 +45,11 @@ const CRITICAL_SETTINGS_CSS = `
 .view-settings .settings-tab-btn{pointer-events:auto!important;cursor:pointer!important;flex:0 0 auto!important}
 `;
 
-/** Attach Settings.scss to a `.view-settings` host (works in light DOM + open shadow roots). */
+/** Attach Settings.scss once on `document` (not per host — in-host inject forced a full recalc). */
 export const attachSettingsInlineStyles = (host: HTMLElement | null | undefined): void => {
-    if (!host?.classList?.contains("view-settings")) return;
-    if (host.querySelector(`style[${STYLE_MARKER}]`)) return;
+    if (host && !host.classList?.contains("view-settings")) return;
+    if (typeof document === "undefined") return;
+    if (document.head?.querySelector(`style[${STYLE_MARKER}]`)) return;
 
     let css = normalizeInlineSettingsCss(String(settingsStyles || ""));
     // WHY: only use critical layout CSS as fallback — prepending dark !important broke light theme.
@@ -57,7 +58,7 @@ export const attachSettingsInlineStyles = (host: HTMLElement | null | undefined)
     const style = document.createElement("style");
     style.setAttribute(STYLE_MARKER, "");
     style.textContent = css;
-    host.insertBefore(style, host.firstChild);
+    document.head?.appendChild(style);
 };
 
 /** Retry until the host is connected (Capacitor shell attaches views async). */
