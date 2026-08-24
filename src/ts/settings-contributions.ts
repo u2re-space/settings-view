@@ -1,8 +1,9 @@
 /*
  * Filename: settings-contributions.ts
  * FullPath: modules/views/settings-view/src/ts/settings-contributions.ts
- * Change date and time: 13.35.00_20.07.2026
- * Reason for changes: Embed Workspace into Appearance without a nested tab-panel hide.
+ * FIND:settings-profile
+ * Change date and time: 15.10.00_24.08.2026
+ * Reason for changes: Launcher Appearance keeps the self-APK Updates block.
  */
 /**
  * Settings-view glue: mount shared contribution registry tabs into the host UI.
@@ -20,6 +21,7 @@ import {
 import { registerBuiltinSettingsContributions } from "com/config/settings/register-builtin-contributions";
 import { readCwspSku } from "com/config/ecosystem-skus";
 export { readCwspSku };
+import { resolveSettingsShellProfile } from "com/config/settings/settings-shell-profile";
 import { resolveCwspUrlFields } from "cwsp-shared/cwsp-endpoint-resolve";
 import {
     getSettingsSync,
@@ -47,12 +49,31 @@ export {
 const TAB_LIST_SELECTOR = "[data-settings-tabs]";
 const BODY_SELECTOR = ".settings-screen__body";
 
+const isNativeApkHost = (): boolean => {
+    try {
+        const g = globalThis as {
+            Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string };
+            __CWS_NATIVE__?: boolean;
+        };
+        const platform = g.Capacitor?.getPlatform?.();
+        return Boolean(
+            g.Capacitor?.isNativePlatform?.() ||
+                platform === "android" ||
+                platform === "ios" ||
+                g.__CWS_NATIVE__ === true
+        );
+    } catch {
+        return false;
+    }
+};
+
 export const resolveSettingsSurface = (): SettingsContributionContext["surface"] => {
     try {
         const sku = readCwspSku();
         if (sku === "document") return "markdown";
         if (sku === "process") return "capacitor";
-        if (sku === "launcher") return "environment";
+        // WHY: environment profile still runs on a Capacitor APK — Updates needs that surface.
+        if (sku === "launcher") return isNativeApkHost() ? "capacitor" : "environment";
         if (sku === "crx") return "crx";
         const g = globalThis as any;
         if (g?.chrome?.runtime?.id) return "crx";
@@ -105,6 +126,10 @@ const contributionVisible = (
     const surfaces = contribution.surfaces;
     if (surfaces?.length && !surfaces.includes(ctx.surface)) return false;
     if (contribution.excludeSurfaces?.includes(ctx.surface)) return false;
+    // WHY: VDS desktop environment has no APK; launcher APK still reports environment in some boots.
+    if (contribution.id === "apk-update" && ctx.surface === "environment" && !isNativeApkHost()) {
+        return false;
+    }
     // INVARIANT: CWSP Control tab belongs to transfer (and CRX/desktop hosts), not sibling APKs.
     if (contribution.id === "cwsp") {
         const sku = ctx.sku || readCwspSku();
@@ -128,6 +153,38 @@ export const mountContributions = (root: HTMLElement, ctx: SettingsContributionC
          * WHY: Appearance + Workspaces are one settings page — sections only.
          * The workspace contribution still owns grid + pages; its tab is not shown.
          */
+        if (
+            contribution.id === "apk-update" &&
+            resolveSettingsShellProfile(ctx) === "environment"
+        ) {
+            const appearance = root.querySelector<HTMLElement>('[data-tab-panel="appearance"]');
+            if (appearance) {
+                let content: HTMLElement | null = null;
+                try {
+                    content = contribution.render(ctx);
+                } catch (error) {
+                    console.warn(`[settings] contribution '${contribution.id}' render failed:`, error);
+                }
+                if (content) {
+                    const wrap = document.createElement("div");
+                    wrap.setAttribute("data-contribution", "apk-update");
+                    wrap.hidden = false;
+                    if (content.matches?.("[data-tab-panel]")) {
+                        content.removeAttribute("hidden");
+                        content.removeAttribute("data-tab-panel");
+                        content.classList.remove("settings-tab-panel");
+                        wrap.append(...Array.from(content.childNodes));
+                    } else {
+                        content.removeAttribute("data-tab-panel");
+                        content.classList.remove("settings-tab-panel");
+                        wrap.appendChild(content);
+                    }
+                    appearance.appendChild(wrap);
+                }
+                continue;
+            }
+        }
+
         if (contribution.id === "workspace") {
             const appearance = root.querySelector<HTMLElement>('[data-tab-panel="appearance"]');
             if (appearance) {
@@ -450,14 +507,7 @@ export const persistContributionsViaSync = async (
 export const contributedTabIds = (ctx: SettingsContributionContext): string[] =>
     visibleContributions(ctx).map((c) => c.id);
 
-const isCapacitorNativeShell = (): boolean => {
-    try {
-        const c = (globalThis as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
-        return typeof c?.isNativePlatform === "function" && Boolean(c.isNativePlatform());
-    } catch {
-        return false;
-    }
-};
+const isCapacitorNativeShell = (): boolean => isNativeApkHost();
 
 /** Resolve bare host/IP fields in `core.endpointUrl` / `core.ops.directUrl` before persist. */
 export const resolveCwspSettingsBeforeSave = async (settings: AppSettings): Promise<void> => {

@@ -123,6 +123,33 @@ test("workspace contribution embeds into Appearance without a nested tab panel",
     assert.ok(wrap.querySelector('[data-settings-field="speedDialColumns"]'));
 });
 
+test("apk-update embeds into Appearance on launcher environment profile", (t) => {
+    const dispose = registerSettingsContribution(contribution("apk-update", {
+        surfaces: ["capacitor", "native", "environment"],
+        render: () => {
+            const panel = document.createElement("section");
+            panel.setAttribute("data-tab-panel", "apk-update");
+            const btn = document.createElement("button");
+            btn.setAttribute("data-action", "apk-update-check");
+            panel.append(btn);
+            return panel;
+        }
+    }));
+    t.after(dispose);
+    const root = createSettingsRoot();
+    const appearance = document.createElement("section");
+    appearance.setAttribute("data-tab-panel", "appearance");
+    root.querySelector(".settings-screen__body")!.append(appearance);
+
+    mountContributions(root, { surface: "capacitor", sku: "launcher" });
+
+    assert.equal(root.querySelector('[data-tab="apk-update"]'), null);
+    const wrap = root.querySelector<HTMLElement>('[data-contribution="apk-update"]');
+    assert.ok(wrap, "Updates block must mount inside Appearance");
+    assert.ok(appearance.contains(wrap));
+    assert.ok(wrap.querySelector('[data-action="apk-update-check"]'));
+});
+
 test("mountContributions is idempotent for a registered visible contribution", (t) => {
     let renderCalls = 0;
     const id = "pass-ii-idempotent-mount";
