@@ -56,6 +56,7 @@ import {
     contributedTabIds,
     registerBuiltinSettingsContributions,
     resolveSettingsSurface,
+    readCwspSku,
     resolveSettingsShellProfile,
     pruneBuiltInSettingsTabs,
     defaultSettingsTabForProfile,
@@ -133,7 +134,8 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
     registerBuiltinSettingsContributions();
     const contributionCtx: SettingsContributionContext = {
         isExtension: opts.isExtension,
-        surface: resolveSettingsSurface()
+        surface: resolveSettingsSurface(),
+        sku: readCwspSku()
     };
     const settingsProfile = resolveSettingsShellProfile(contributionCtx);
     mountContributions(root, contributionCtx);

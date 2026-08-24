@@ -33,6 +33,9 @@
             "com/config/SettingsTypes": [
                 "../../projects/subsystem/src/other/config/SettingsTypes.ts"
             ],
+            "com/config/ecosystem-skus": [
+                "../../projects/subsystem/src/other/config/ecosystem-skus.ts"
+            ],
             "com/config/settings/register-builtin-contributions": [
                 "../../projects/subsystem/src/other/config/settings/register-builtin-contributions.ts"
             ],

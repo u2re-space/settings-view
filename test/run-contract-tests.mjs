@@ -19,10 +19,16 @@ const root = resolve(import.meta.dirname, "..");
 const outputDirectory = await mkdtemp(
     join(resolve(root, "../../../node_modules"), ".settings-view-contracts-")
 );
-const testOnlyAliases = [{
-    find: "cwsp-shared/cwsp-endpoint-resolve",
-    replacement: resolve(root, "test/stubs/cwsp-endpoint-resolve.ts")
-}];
+const testOnlyAliases = [
+    {
+        find: "cwsp-shared/cwsp-endpoint-resolve",
+        replacement: resolve(root, "test/stubs/cwsp-endpoint-resolve.ts")
+    },
+    {
+        find: "com/config/settings/crx-control-session",
+        replacement: resolve(root, "test/stubs/crx-control-session.ts")
+    }
+];
 const testEntries = {
     "settings-contributions.test": resolve(root, "test/settings-contributions.test.ts"),
     "settings-contribution-sync.test": resolve(root, "test/settings-contribution-sync.test.ts"),

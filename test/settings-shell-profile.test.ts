@@ -31,7 +31,8 @@ import {
 
 type Ctx = {
     isExtension?: boolean;
-    surface: "web" | "crx" | "capacitor" | "native" | "unknown";
+    surface: "web" | "crx" | "capacitor" | "native" | "unknown" | "environment" | "markdown";
+    sku?: "launcher" | "transfer" | "explorer" | "document" | "process" | "crx" | "";
 };
 
 const buildRoot = (panels: string[]): HTMLElement => {
@@ -89,6 +90,26 @@ test("unknown surface → full profile", () => {
     assert.equal(resolveSettingsShellProfile({ surface: "unknown" } as Ctx), "full");
 });
 
+test("sku launcher → environment even on capacitor", () => {
+    assert.equal(resolveSettingsShellProfile({ surface: "capacitor", sku: "launcher" } as Ctx), "environment");
+});
+
+test("sku transfer → cwsp-mobile", () => {
+    assert.equal(resolveSettingsShellProfile({ surface: "capacitor", sku: "transfer" } as Ctx), "cwsp-mobile");
+});
+
+test("sku explorer → explorer profile", () => {
+    assert.equal(resolveSettingsShellProfile({ surface: "capacitor", sku: "explorer" } as Ctx), "explorer");
+});
+
+test("sku document → document (print/read/edit, no AI)", () => {
+    assert.equal(resolveSettingsShellProfile({ surface: "capacitor", sku: "document" } as Ctx), "document");
+});
+
+test("sku process → process (AI / WorkCenter)", () => {
+    assert.equal(resolveSettingsShellProfile({ surface: "capacitor", sku: "process" } as Ctx), "process");
+});
+
 // ---------------------------------------------------------------------------
 // defaultSettingsTabForProfile
 // ---------------------------------------------------------------------------
@@ -103,6 +124,22 @@ test("defaultSettingsTabForProfile: extension → crx", () => {
 
 test("defaultSettingsTabForProfile: full → ai", () => {
     assert.equal(defaultSettingsTabForProfile("full"), "ai");
+});
+
+test("defaultSettingsTabForProfile: environment → appearance", () => {
+    assert.equal(defaultSettingsTabForProfile("environment"), "appearance");
+});
+
+test("defaultSettingsTabForProfile: explorer → appearance", () => {
+    assert.equal(defaultSettingsTabForProfile("explorer"), "appearance");
+});
+
+test("defaultSettingsTabForProfile: document → markdown", () => {
+    assert.equal(defaultSettingsTabForProfile("document"), "markdown");
+});
+
+test("defaultSettingsTabForProfile: process → ai", () => {
+    assert.equal(defaultSettingsTabForProfile("process"), "ai");
 });
 
 // ---------------------------------------------------------------------------
@@ -176,9 +213,51 @@ test("hasBuiltInSettingsPanel returns false for missing panel", () => {
 });
 
 // Compile-time profile type sanity.
-test("SettingsShellProfile covers full / cwsp-mobile / extension", () => {
+test("pruneBuiltInSettingsTabs hides markdown/ai/cwsp for environment (launcher)", () => {
+    const hidden = ["markdown", "ai", "cwsp", "mcp", "instructions", "server", "extension"];
+    const kept = ["appearance"];
+    const root = buildRoot([...hidden, ...kept]);
+    pruneBuiltInSettingsTabs(root, "environment");
+    for (const id of hidden) {
+        assert.equal(root.querySelector(`[data-tab-panel="${id}"]`), null, `panel ${id} should be pruned`);
+    }
+    for (const id of kept) {
+        assert.ok(root.querySelector(`[data-tab-panel="${id}"]`), `panel ${id} must survive`);
+    }
+});
+
+test("SettingsShellProfile covers full / cwsp-mobile / extension / explorer / document / process", () => {
     const full: SettingsShellProfile = "full";
     const mobile: SettingsShellProfile = "cwsp-mobile";
     const ext: SettingsShellProfile = "extension";
-    assert.ok(full && mobile && ext);
+    const explorer: SettingsShellProfile = "explorer";
+    const document: SettingsShellProfile = "document";
+    const process: SettingsShellProfile = "process";
+    assert.ok(full && mobile && ext && explorer && document && process);
+});
+
+test("pruneBuiltInSettingsTabs hides AI on document SKU", () => {
+    const hidden = ["ai", "mcp", "instructions", "cwsp", "server", "extension"];
+    const kept = ["appearance", "markdown"];
+    const root = buildRoot([...hidden, ...kept]);
+    pruneBuiltInSettingsTabs(root, "document");
+    for (const id of hidden) {
+        assert.equal(root.querySelector(`[data-tab-panel="${id}"]`), null, `panel ${id} should be pruned`);
+    }
+    for (const id of kept) {
+        assert.ok(root.querySelector(`[data-tab-panel="${id}"]`), `panel ${id} must survive`);
+    }
+});
+
+test("pruneBuiltInSettingsTabs keeps AI and hides markdown on process SKU", () => {
+    const hidden = ["markdown", "cwsp", "server", "extension"];
+    const kept = ["appearance", "ai", "mcp", "instructions"];
+    const root = buildRoot([...hidden, ...kept]);
+    pruneBuiltInSettingsTabs(root, "process");
+    for (const id of hidden) {
+        assert.equal(root.querySelector(`[data-tab-panel="${id}"]`), null, `panel ${id} should be pruned`);
+    }
+    for (const id of kept) {
+        assert.ok(root.querySelector(`[data-tab-panel="${id}"]`), `panel ${id} must survive`);
+    }
 });

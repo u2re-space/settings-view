@@ -18,6 +18,8 @@ import {
     type SettingsContributionContext
 } from "com/config/SettingsContributions";
 import { registerBuiltinSettingsContributions } from "com/config/settings/register-builtin-contributions";
+import { readCwspSku } from "com/config/ecosystem-skus";
+export { readCwspSku };
 import { resolveCwspUrlFields } from "cwsp-shared/cwsp-endpoint-resolve";
 import {
     getSettingsSync,
@@ -27,6 +29,7 @@ import {
 
 export { registerBuiltinSettingsContributions };
 export {
+    registerApkUpdateSettingsContribution,
     registerCwspSettingsContribution,
     registerDeviceSettingsContribution,
     registerReaderSettingsContribution,
@@ -46,6 +49,11 @@ const BODY_SELECTOR = ".settings-screen__body";
 
 export const resolveSettingsSurface = (): SettingsContributionContext["surface"] => {
     try {
+        const sku = readCwspSku();
+        if (sku === "document") return "markdown";
+        if (sku === "process") return "capacitor";
+        if (sku === "launcher") return "environment";
+        if (sku === "crx") return "crx";
         const g = globalThis as any;
         if (g?.chrome?.runtime?.id) return "crx";
         // WHY: isNativePlatform can be late; also accept getPlatform for Capacitor WebView.
@@ -97,6 +105,11 @@ const contributionVisible = (
     const surfaces = contribution.surfaces;
     if (surfaces?.length && !surfaces.includes(ctx.surface)) return false;
     if (contribution.excludeSurfaces?.includes(ctx.surface)) return false;
+    // INVARIANT: CWSP Control tab belongs to transfer (and CRX/desktop hosts), not sibling APKs.
+    if (contribution.id === "cwsp") {
+        const sku = ctx.sku || readCwspSku();
+        if (sku === "launcher" || sku === "explorer" || sku === "document" || sku === "process") return false;
+    }
     return true;
 };
 
