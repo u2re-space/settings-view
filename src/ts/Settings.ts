@@ -56,14 +56,26 @@ import {
     contributedTabIds,
     registerBuiltinSettingsContributions,
     resolveSettingsSurface,
-    readCwspSku,
+    resolveSettingsContributionContext,
     resolveSettingsShellProfile,
     pruneBuiltInSettingsTabs,
     defaultSettingsTabForProfile,
+    resolveEffectiveHubSettingsSection,
+    canonicalHubSettingsSection,
+    hubSettingsSectionPath,
+    skuForHubSettingsSection,
+    readCwspSku,
+    visibleHubSettingsSections,
+    rememberSettingsAreaSection,
+    resolveSettingsAreaNavMode,
+    peekInstalledSiblingSettingsSections,
+    refreshInstalledSiblingSettingsSections,
+    type HubSettingsSection,
     hasBuiltInSettingsPanel,
     loadSettingsHydratedFromSync,
     persistContributionsViaSync
 } from "./settings-contributions";
+import { androidPackageForSku, apkManifestForSku, type CwspSku } from "com/config/ecosystem-skus";
 import { requestCapacitorSettingsPermissionsAfterSave } from "boot/capacitor-settings-permissions";
 import { isCapacitorNative } from "boot/capacitor-permissions";
 import { attachSettingsInlineStylesWhenConnected } from "./settings-styles-attach";
@@ -71,18 +83,37 @@ import { attachSettingsInlineStylesWhenConnected } from "./settings-styles-attac
 export type SettingsViewOptions = {
     isExtension: boolean;
     initialTab?: string;
+    /** Hub `/settings/{area}` — when set, contribs follow that SKU. */
+    hubSection?: HubSettingsSection;
     onTheme?: (theme: AppSettings["appearance"] extends { theme?: infer T } ? (T extends string ? T : "auto") : "auto") => void;
 };
 
 /** PERF: reuse the built tree on reopen — first createSettingsView is the expensive click. */
 let cachedSettingsViewRoot: HTMLElement | null = null;
 
+export const resetSettingsViewCache = (): void => {
+    cachedSettingsViewRoot = null;
+};
+
+const HUB_SECTION_LABELS: { id: HubSettingsSection; label: string }[] = [
+    { id: "hub", label: "Shell" },
+    { id: "explorer", label: "Explorer" },
+    { id: "document", label: "Document" },
+    { id: "process", label: "Process" },
+    { id: "transfer", label: "Transfer" }
+];
+
 export const createSettingsView = (opts: SettingsViewOptions) => {
+    const hubSection = opts.hubSection || resolveEffectiveHubSettingsSection() || "hub";
     if (cachedSettingsViewRoot) {
-        if (opts.initialTab) {
-            cachedSettingsViewRoot.dispatchEvent(new CustomEvent("cwsp-settings-resync"));
+        if (cachedSettingsViewRoot.dataset.hubSettingsSection !== hubSection) {
+            cachedSettingsViewRoot = null;
+        } else {
+            if (opts.initialTab) {
+                cachedSettingsViewRoot.dispatchEvent(new CustomEvent("cwsp-settings-resync"));
+            }
+            return cachedSettingsViewRoot;
         }
-        return cachedSettingsViewRoot;
     }
 
     let note: HTMLElement | null = null;
@@ -132,13 +163,53 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
     // them now (before tab click handlers are wired below) so they behave like
     // built-in tabs and persist generically through load/save.
     registerBuiltinSettingsContributions();
-    const contributionCtx: SettingsContributionContext = {
-        isExtension: opts.isExtension,
-        surface: resolveSettingsSurface(),
-        sku: readCwspSku()
-    };
+    const navMode = resolveSettingsAreaNavMode();
+    const installedSiblings = peekInstalledSiblingSettingsSections();
+    const visibleAreas = visibleHubSettingsSections(navMode, installedSiblings);
+    const contributionCtx: SettingsContributionContext = resolveSettingsContributionContext(
+        opts.isExtension,
+        opts.hubSection
+    );
+    // WHY: hub URL and launcher sibling nav override SKU; other hosts keep their own.
+    if (navMode !== "none") {
+        const wanted = opts.hubSection || contributionCtx.hubSection || "hub";
+        contributionCtx.hubSection =
+            visibleAreas.length && !visibleAreas.includes(wanted) ? "hub" : wanted;
+    }
     const settingsProfile = resolveSettingsShellProfile(contributionCtx);
+    root.dataset.hubSettingsSection = contributionCtx.hubSection || hubSection;
     mountContributions(root, contributionCtx);
+
+    if (visibleAreas.length > 1) {
+        const header = root.querySelector(".settings-screen__top");
+        const tabList = root.querySelector("[data-settings-tabs]");
+        if (header && tabList) {
+            const nav = document.createElement("nav");
+            nav.className = "settings-tab-actions settings-sku-nav";
+            nav.setAttribute("data-settings-sku-nav", "");
+            nav.setAttribute("aria-label", "Settings area");
+            for (const item of HUB_SECTION_LABELS) {
+                if (!visibleAreas.includes(item.id)) continue;
+                const btn = document.createElement("button");
+                btn.className = "settings-tab-btn";
+                btn.type = "button";
+                btn.setAttribute("data-action", "open-settings-section");
+                btn.setAttribute("data-section", item.id);
+                btn.textContent = item.label;
+                btn.classList.toggle("is-active", item.id === (contributionCtx.hubSection || "hub"));
+                nav.appendChild(btn);
+            }
+            header.insertBefore(nav, tabList);
+        }
+    }
+
+    if (navMode === "launcher" && installedSiblings === null) {
+        void refreshInstalledSiblingSettingsSections().then((next) => {
+            if (!next.length) return;
+            resetSettingsViewCache();
+            globalThis.dispatchEvent(new CustomEvent("cwsp-settings-section"));
+        });
+    }
 
     pruneBuiltInSettingsTabs(root, settingsProfile);
 
@@ -152,6 +223,20 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
     }
 
     const hasPanel = (panelId: string) => hasBuiltInSettingsPanel(root, panelId);
+
+    /** Launcher sibling section updates that SKU's APK — not the launcher package. */
+    const apkUpdateTarget = (): { sku: CwspSku; packageName: string; manifest: string } => {
+        const section = canonicalHubSettingsSection(root.dataset.hubSettingsSection || "hub");
+        const sku: CwspSku =
+            resolveSettingsAreaNavMode() !== "none" && section !== "hub"
+                ? (skuForHubSettingsSection(section) as CwspSku)
+                : ((readCwspSku() || "launcher") as CwspSku);
+        return {
+            sku,
+            packageName: androidPackageForSku(sku) || "",
+            manifest: apkManifestForSku(sku)
+        };
+    };
 
     const field = (sel: string) => root.querySelector(sel) as HTMLInputElement | HTMLSelectElement | null;
     note = root.querySelector("[data-note]") as HTMLElement | null;
@@ -362,6 +447,26 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         "click",
         (e) => {
             const t = eventTargetElement(e);
+            const sectionBtn = t?.closest?.(
+                '[data-action="open-settings-section"][data-section]'
+            ) as HTMLElement | null;
+            if (sectionBtn && root.contains(sectionBtn)) {
+                e.preventDefault();
+                e.stopPropagation();
+                const next = String(sectionBtn.getAttribute("data-section") || "hub").toLowerCase() as HubSettingsSection;
+                rememberSettingsAreaSection(next);
+                resetSettingsViewCache();
+                // WHY: Capacitor launcher must not push `/settings/{area}` (WebView reload 404).
+                if (resolveSettingsAreaNavMode() === "hub") {
+                    const pathSeg = hubSettingsSectionPath(next);
+                    navigateToView("settings", pathSeg ? { section: pathSeg } : {});
+                } else {
+                    globalThis.dispatchEvent(
+                        new CustomEvent("cwsp-settings-section", { detail: { section: next } })
+                    );
+                }
+                return;
+            }
             const tabBtn = t?.closest?.(
                 '[data-action="switch-settings-tab"][data-tab]'
             ) as HTMLElement | null;
@@ -623,7 +728,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             // Capacitor: hydrate installed version + signing cert fingerprint in App update section.
             if (isCapacitorNative()) {
                 void import("com/routing/native/cws-bridge")
-                    .then((m) => m.invokeCwsNative("app:info", {}))
+                    .then((m) => m.invokeCwsNative("app:info", apkUpdateTarget()))
                     .then((result) => {
                         const echo = (result as any)?.echo || {};
                         const el = root.querySelector("[data-apk-local-version]") as HTMLElement | null;
@@ -1168,6 +1273,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                         insecureEl?.checked ?? Boolean((s.core as any)?.allowInsecureTls);
                     const { invokeCwsNative } = await import("com/routing/native/cws-bridge");
                     const result = await invokeCwsNative(channel, {
+                        ...apkUpdateTarget(),
                         source,
                         endpointUrl,
                         token,

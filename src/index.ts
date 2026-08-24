@@ -13,12 +13,22 @@ import type { BaseViewOptions } from "views/types";
 import { SettingsChannelAction } from "views/apis/channel-actions";
 
 import { attachSettingsInlineStyles, attachSettingsInlineStylesWhenConnected } from "./ts/settings-styles-attach";
-import { createSettingsView } from "./ts/Settings";
+import { createSettingsView, resetSettingsViewCache } from "./ts/Settings";
+import {
+    resolveEffectiveHubSettingsSection,
+    canonicalHubSettingsSection,
+    readSettingsAreaSection,
+    resolveSettingsAreaNavMode,
+    refreshInstalledSiblingSettingsSections,
+    peekInstalledSiblingSettingsSections,
+    sameSiblingSectionSet,
+    type HubSettingsSection
+} from "./ts/settings-contributions";
 
 // COMPAT: legacy minimal shell (`channel-unknown.ts`) and the view-factory
 // resolver (`registry.ts`) look up `module.createSettingsView`. Re-export it so
 // `import("views/settings").createSettingsView(...)` keeps working.
-export { createSettingsView } from "./ts/Settings";
+export { createSettingsView, resetSettingsViewCache } from "./ts/Settings";
 export {
     registerSettingsContribution,
     getSettingsContributions,
@@ -35,7 +45,8 @@ export {
     applyContributions,
     collectContributions,
     mountContributions,
-    resolveSettingsSurface
+    resolveSettingsSurface,
+    refreshInstalledSiblingSettingsSections
 } from "./ts/settings-contributions";
 export {
     registerSettingsSyncArm,
@@ -119,6 +130,8 @@ export class SettingsView implements View {
         },
         onShow: () => {
             this.applySettingsStylesheet();
+            this.syncHubSectionFromLocation();
+            void this.refreshLauncherSiblingNav();
             this.element?.dispatchEvent(new CustomEvent("cwsp-settings-resync", { bubbles: false }));
         },
         onHide: () => {
@@ -129,7 +142,18 @@ export class SettingsView implements View {
     constructor(options: SettingsOptions = {}) {
         this.options = options;
         this.shellContext = options.shellContext;
+        try {
+            globalThis.addEventListener("route-change", this.onHubSettingsRoute);
+            globalThis.addEventListener("popstate", this.onHubSettingsRoute);
+            globalThis.addEventListener("cwsp-settings-section", this.onHubSettingsRoute);
+        } catch {
+            /* jsdom / workers */
+        }
     }
+
+    private readonly onHubSettingsRoute = (): void => {
+        this.syncHubSectionFromLocation();
+    };
 
     render(options?: ViewOptions): HTMLElement {
         if (options) {
@@ -244,15 +268,24 @@ export class SettingsView implements View {
             </div>
         ` as HTMLElement;*/
 
-        const isExtensionRuntime =
-            typeof (globalThis as unknown as { chrome?: { runtime?: { id?: string } } }).chrome !== "undefined" &&
-            Boolean((globalThis as unknown as { chrome?: { runtime?: { id?: string } } }).chrome?.runtime?.id);
+        const isExtensionRuntime = this.isExtensionRuntime();
+
+        const hubSection = this.resolveAreaSection(options?.params?.section);
+        if (
+            hubSection &&
+            this.element &&
+            this.element.dataset.hubSettingsSection !== hubSection
+        ) {
+            resetSettingsViewCache();
+            this.element = null;
+        }
 
         if (this.element) return this.element;
 
         this.element = createSettingsView({
             isExtension: isExtensionRuntime,
             initialTab: options?.params?.tab || options?.params?.focus,
+            hubSection,
             onTheme: (theme) => {
                 this.options.onThemeChange?.(theme as "auto" | "light" | "dark");
             }
@@ -270,6 +303,59 @@ export class SettingsView implements View {
     // ========================================================================
     // PRIVATE METHODS
     // ========================================================================
+
+    private isExtensionRuntime(): boolean {
+        return (
+            typeof (globalThis as unknown as { chrome?: { runtime?: { id?: string } } }).chrome !==
+                "undefined" &&
+            Boolean((globalThis as unknown as { chrome?: { runtime?: { id?: string } } }).chrome?.runtime?.id)
+        );
+    }
+
+    private resolveAreaSection(explicit?: string): HubSettingsSection | undefined {
+        const fromHub = resolveEffectiveHubSettingsSection();
+        if (fromHub) return canonicalHubSettingsSection(explicit || fromHub);
+        if (resolveSettingsAreaNavMode() === "launcher") {
+            return canonicalHubSettingsSection(
+                explicit || readSettingsAreaSection() || "hub"
+            );
+        }
+        return undefined;
+    }
+
+    private async refreshLauncherSiblingNav(): Promise<void> {
+        if (resolveSettingsAreaNavMode() !== "launcher") return;
+        const before = peekInstalledSiblingSettingsSections();
+        const next = await refreshInstalledSiblingSettingsSections();
+        if (sameSiblingSectionSet(before, next)) return;
+        this.remountSettings(this.resolveAreaSection() || "hub");
+    }
+
+    private remountSettings(section: HubSettingsSection): void {
+        if (!this.element) return;
+        const parent = this.element.parentNode;
+        resetSettingsViewCache();
+        const nextEl = createSettingsView({
+            isExtension: this.isExtensionRuntime(),
+            hubSection: section,
+            initialTab: this.options.params?.tab || this.options.params?.focus,
+            onTheme: (theme) => {
+                this.options.onThemeChange?.(theme as "auto" | "light" | "dark");
+            }
+        });
+        parent?.replaceChild(nextEl, this.element);
+        this.element = nextEl;
+        queueMicrotask(() => attachSettingsInlineStylesWhenConnected(this.element));
+    }
+
+    /** Hub `/settings/{area}` or launcher sibling section changed — rebuild contribs. */
+    private syncHubSectionFromLocation(): void {
+        if (!this.element) return;
+        const next = this.resolveAreaSection();
+        if (!next) return;
+        if (this.element.dataset.hubSettingsSection === next) return;
+        this.remountSettings(next);
+    }
 
     private setupEventHandlers(): void {
         // Legacy handlers are intentionally disabled.

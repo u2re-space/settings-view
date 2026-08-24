@@ -3,7 +3,7 @@
  * FullPath: modules/views/settings-view/src/ts/settings-contributions.ts
  * FIND:settings-profile
  * Change date and time: 15.10.00_24.08.2026
- * Reason for changes: Launcher Appearance keeps the self-APK Updates block.
+ * Reason for changes: apk-update is always a dedicated Updates tab.
  */
 /**
  * Settings-view glue: mount shared contribution registry tabs into the host UI.
@@ -21,7 +21,14 @@ import {
 import { registerBuiltinSettingsContributions } from "com/config/settings/register-builtin-contributions";
 import { readCwspSku } from "com/config/ecosystem-skus";
 export { readCwspSku };
-import { resolveSettingsShellProfile } from "com/config/settings/settings-shell-profile";
+import {
+    resolveSettingsShellProfile,
+    resolveEffectiveHubSettingsSection,
+    skuForHubSettingsSection,
+    readSettingsAreaSection,
+    type HubSettingsSection
+} from "com/config/settings/settings-shell-profile";
+import { resolveSettingsAreaNavMode } from "./settings-sibling-presence";
 import { resolveCwspUrlFields } from "cwsp-shared/cwsp-endpoint-resolve";
 import {
     getSettingsSync,
@@ -43,8 +50,23 @@ export {
     pruneBuiltInSettingsTabs,
     defaultSettingsTabForProfile,
     hasBuiltInSettingsPanel,
-    type SettingsShellProfile
+    resolveEffectiveHubSettingsSection,
+    canonicalHubSettingsSection,
+    hubSettingsSectionPath,
+    skuForHubSettingsSection,
+    visibleHubSettingsSections,
+    rememberSettingsAreaSection,
+    readSettingsAreaSection,
+    type SettingsShellProfile,
+    type HubSettingsSection,
+    type SettingsAreaNavMode
 } from "com/config/settings/settings-shell-profile";
+export {
+    resolveSettingsAreaNavMode,
+    peekInstalledSiblingSettingsSections,
+    refreshInstalledSiblingSettingsSections,
+    sameSiblingSectionSet
+} from "./settings-sibling-presence";
 
 const TAB_LIST_SELECTOR = "[data-settings-tabs]";
 const BODY_SELECTOR = ".settings-screen__body";
@@ -118,6 +140,29 @@ export const resolveSettingsSurface = (): SettingsContributionContext["surface"]
     return "unknown";
 };
 
+/** Hub `/settings/{area}` or launcher sibling section overrides SKU so contribs match that PWA. */
+export const resolveSettingsContributionContext = (
+    isExtension?: boolean,
+    hubSectionOverride?: HubSettingsSection | null
+): SettingsContributionContext => {
+    const fromHub = resolveEffectiveHubSettingsSection();
+    const navMode = resolveSettingsAreaNavMode();
+    const fromLauncher =
+        navMode === "launcher"
+            ? (hubSectionOverride || readSettingsAreaSection() || "hub")
+            : null;
+    const hubSection = fromHub || fromLauncher || hubSectionOverride || undefined;
+    const sku = hubSection ? skuForHubSettingsSection(hubSection) : readCwspSku();
+    let surface = resolveSettingsSurface();
+    if (hubSection === "document") surface = "markdown";
+    return {
+        isExtension: Boolean(isExtension),
+        surface,
+        sku,
+        hubSection
+    };
+};
+
 const contributionVisible = (
     contribution: SettingsContribution,
     ctx: SettingsContributionContext
@@ -152,39 +197,8 @@ export const mountContributions = (root: HTMLElement, ctx: SettingsContributionC
         /*
          * WHY: Appearance + Workspaces are one settings page — sections only.
          * The workspace contribution still owns grid + pages; its tab is not shown.
+         * INVARIANT: apk-update is always its own Updates tab (launcher and sibling APKs).
          */
-        if (
-            contribution.id === "apk-update" &&
-            resolveSettingsShellProfile(ctx) === "environment"
-        ) {
-            const appearance = root.querySelector<HTMLElement>('[data-tab-panel="appearance"]');
-            if (appearance) {
-                let content: HTMLElement | null = null;
-                try {
-                    content = contribution.render(ctx);
-                } catch (error) {
-                    console.warn(`[settings] contribution '${contribution.id}' render failed:`, error);
-                }
-                if (content) {
-                    const wrap = document.createElement("div");
-                    wrap.setAttribute("data-contribution", "apk-update");
-                    wrap.hidden = false;
-                    if (content.matches?.("[data-tab-panel]")) {
-                        content.removeAttribute("hidden");
-                        content.removeAttribute("data-tab-panel");
-                        content.classList.remove("settings-tab-panel");
-                        wrap.append(...Array.from(content.childNodes));
-                    } else {
-                        content.removeAttribute("data-tab-panel");
-                        content.classList.remove("settings-tab-panel");
-                        wrap.appendChild(content);
-                    }
-                    appearance.appendChild(wrap);
-                }
-                continue;
-            }
-        }
-
         if (contribution.id === "workspace") {
             const appearance = root.querySelector<HTMLElement>('[data-tab-panel="appearance"]');
             if (appearance) {

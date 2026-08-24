@@ -26,6 +26,10 @@ import {
     pruneBuiltInSettingsTabs,
     defaultSettingsTabForProfile,
     hasBuiltInSettingsPanel,
+    canonicalHubSettingsSection,
+    hubSettingsSectionPath,
+    skuForHubSettingsSection,
+    visibleHubSettingsSections,
     type SettingsShellProfile
 } from "../../../projects/subsystem/src/other/config/settings/settings-shell-profile.ts";
 
@@ -247,6 +251,50 @@ test("pruneBuiltInSettingsTabs hides AI on document SKU", () => {
     for (const id of kept) {
         assert.ok(root.querySelector(`[data-tab-panel="${id}"]`), `panel ${id} must survive`);
     }
+});
+
+test("hub settings aliases collapse cwsp/viewer/workcenter pairs", () => {
+    assert.equal(canonicalHubSettingsSection("cwsp"), canonicalHubSettingsSection("transfer"));
+    assert.equal(canonicalHubSettingsSection("viewer"), canonicalHubSettingsSection("markdown"));
+    assert.equal(canonicalHubSettingsSection("document"), canonicalHubSettingsSection("md"));
+    assert.equal(canonicalHubSettingsSection("workcenter"), canonicalHubSettingsSection("process"));
+    assert.equal(canonicalHubSettingsSection("shell"), "hub");
+    assert.equal(canonicalHubSettingsSection(""), "hub");
+});
+
+test("hubSettingsSectionPath emits canonical URL segments", () => {
+    assert.equal(hubSettingsSectionPath("hub"), "");
+    assert.equal(hubSettingsSectionPath("document"), "markdown");
+    assert.equal(hubSettingsSectionPath("transfer"), "transfer");
+    assert.equal(hubSettingsSectionPath("process"), "process");
+    assert.equal(hubSettingsSectionPath("explorer"), "explorer");
+});
+
+test("visibleHubSettingsSections hides launcher tabs until a sibling APK is installed", () => {
+    assert.deepEqual(visibleHubSettingsSections("none"), []);
+    assert.deepEqual(visibleHubSettingsSections("launcher", null), []);
+    assert.deepEqual(visibleHubSettingsSections("launcher", []), []);
+    assert.deepEqual(visibleHubSettingsSections("launcher", ["transfer"]), ["hub", "transfer"]);
+    assert.deepEqual(visibleHubSettingsSections("launcher", ["explorer", "process"]), [
+        "hub",
+        "explorer",
+        "process"
+    ]);
+    assert.deepEqual(visibleHubSettingsSections("hub", []), [
+        "hub",
+        "explorer",
+        "document",
+        "process",
+        "transfer"
+    ]);
+});
+
+test("skuForHubSettingsSection mirrors sibling PWAs", () => {
+    assert.equal(skuForHubSettingsSection("hub"), "launcher");
+    assert.equal(skuForHubSettingsSection("explorer"), "explorer");
+    assert.equal(skuForHubSettingsSection("transfer"), "transfer");
+    assert.equal(skuForHubSettingsSection("document"), "document");
+    assert.equal(skuForHubSettingsSection("process"), "process");
 });
 
 test("pruneBuiltInSettingsTabs keeps AI and hides markdown on process SKU", () => {

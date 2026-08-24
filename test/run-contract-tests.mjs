@@ -27,6 +27,13 @@ const testOnlyAliases = [
     {
         find: "com/config/settings/crx-control-session",
         replacement: resolve(root, "test/stubs/crx-control-session.ts")
+    },
+    {
+        find: "com/routing/native/launcher-bridge",
+        replacement: resolve(
+            root,
+            "../../projects/subsystem/src/routing/native/launcher-bridge.ts"
+        )
     }
 ];
 const testEntries = {
