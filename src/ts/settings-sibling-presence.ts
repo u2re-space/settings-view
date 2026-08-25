@@ -9,6 +9,7 @@
 import {
     androidPackageForSku,
     inferCwspSkuFromLocation,
+    isWebHubSurface,
     readCwspSku,
     type CwspSku
 } from "com/config/ecosystem-skus";
@@ -48,6 +49,8 @@ export const resolveSettingsAreaNavMode = (): SettingsAreaNavMode => {
     const sku = inferCwspSkuFromLocation() || readCwspSku();
     if (sku && sku !== "launcher" && sku !== "crx") return "none";
     if (resolveEffectiveHubSettingsSection() !== null) return "hub";
+    // WHY: Settings is a desktop window on `/` — still show Explorer/Document/Process/Transfer areas.
+    if (isWebHubSurface()) return "hub";
     if (sku === "launcher" && isNativeApkHost()) return "launcher";
     return "none";
 };

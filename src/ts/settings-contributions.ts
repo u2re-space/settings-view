@@ -147,14 +147,17 @@ export const resolveSettingsContributionContext = (
 ): SettingsContributionContext => {
     const fromHub = resolveEffectiveHubSettingsSection();
     const navMode = resolveSettingsAreaNavMode();
-    const fromLauncher =
-        navMode === "launcher"
+    const fromAreaNav =
+        navMode === "hub" || navMode === "launcher"
             ? (hubSectionOverride || readSettingsAreaSection() || "hub")
             : null;
-    const hubSection = fromHub || fromLauncher || hubSectionOverride || undefined;
+    const hubSection = fromHub || fromAreaNav || hubSectionOverride || undefined;
     const sku = hubSection ? skuForHubSettingsSection(hubSection) : readCwspSku();
     let surface = resolveSettingsSurface();
     if (hubSection === "document") surface = "markdown";
+    else if (hubSection === "transfer") surface = "web";
+    else if (hubSection === "process" || hubSection === "explorer") surface = "web";
+    else if (hubSection === "hub") surface = "environment";
     return {
         isExtension: Boolean(isExtension),
         surface,
