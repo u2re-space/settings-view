@@ -8,6 +8,7 @@
  */
 import {
     androidPackageForSku,
+    inferCwspSkuFromLocation,
     readCwspSku,
     type CwspSku
 } from "com/config/ecosystem-skus";
@@ -44,8 +45,10 @@ const isNativeApkHost = (): boolean => {
 
 /** Hub URL tree, or launcher APK (sibling packages), otherwise no area nav. */
 export const resolveSettingsAreaNavMode = (): SettingsAreaNavMode => {
+    const sku = inferCwspSkuFromLocation() || readCwspSku();
+    if (sku && sku !== "launcher" && sku !== "crx") return "none";
     if (resolveEffectiveHubSettingsSection() !== null) return "hub";
-    if (readCwspSku() === "launcher" && isNativeApkHost()) return "launcher";
+    if (sku === "launcher" && isNativeApkHost()) return "launcher";
     return "none";
 };
 
