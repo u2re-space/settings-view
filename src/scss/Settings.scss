@@ -130,10 +130,12 @@
             display: flex;
             flex-direction: column;
             align-items: stretch;
-            gap: 0.75rem;
+            gap: 0rem;
             padding-block-end: 0px;
             background: var(--sv-surface-2, var(--sv-bg));
-            border-block-end: 1px solid var(--sv-divider);
+            /*border-block-end: 1px solid var(--sv-divider);*/
+            border: 0px none transparent;
+            border-block-end: 0px none transparent;
             flex-shrink: 0;
             /* WHY: must span the grid track — shrink-to-title collapsed the tab strip to 0px. */
             inline-size: 100%;
@@ -173,6 +175,7 @@
             scrollbar-color: var(--sv-outline, light-dark(#c5cdd8, #3d4755)) transparent;
             touch-action: pan-y;
             max-inline-size: stretch;
+            background: var(--sv-surface-1, light-dark(#f4f6fa, #1c232d));
         }
 
         .settings-screen__body::-webkit-scrollbar {
@@ -192,19 +195,15 @@
             gap: 0.5rem;
             flex-wrap: wrap;
             flex-shrink: 0;
-            padding-block: 0.75rem;
+            padding-block: 0.125rem;
             padding-inline: 0.25rem;
+            background: var(--sv-surface-1, light-dark(#f4f6fa, #1c232d));
             /*border-block-start: 1px solid var(--sv-divider);*/
             /*background: color-mix(in oklab, var(--sv-surface-1, light-dark(#ffffff, #171c24)) 85%, var(--sv-bg, light-dark(#eef1f6, #0f1318)));
             box-shadow: 0 -10px 28px color-mix(in oklab, var(--sv-fg, light-dark(#12151a, #e8edf2)) 4%, transparent);*/
-            background: transparent;
             max-inline-size: stretch;
         }
 
-        /* ── tabs ── */
-        .settings-sku-nav {
-            margin-block-end: 0.125rem;
-        }
 
         .settings-tab-actions {
             display: flex;
@@ -227,7 +226,45 @@
             touch-action: pan-x;
             max-inline-size: stretch;
             /* WHY: keep the horizontal scrollbar off the pill tabs. */
-            padding-block-end: 0.5rem;
+            padding-block: 0.25rem;
+            background-color: var(--sv-surface-1, light-dark(#ffffff, #171c24));
+            border-block-start: 1px solid var(--sv-divider);
+            padding-block-end: 0.25rem;
+        }
+        
+        /* ── tabs ── */
+        .settings-sku-nav {
+            margin-block-end: 0.125rem;
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: thin;
+            scrollbar-color: var(--sv-outline, light-dark(#c5cdd8, #3d4755)) transparent;
+            pointer-events: auto;
+            position: relative;
+            z-index: 1;
+            touch-action: pan-x;
+            max-inline-size: stretch;
+            justify-content: flex-start;
+            align-items: center;
+            gap: 0.375rem;
+            inline-size: 100%;
+            max-inline-size: 100%;
+            min-inline-size: 0;
+            flex: 0 0 auto;
+            padding-block: 0.5rem;
+            margin: 0px;
+            border: 0px none transparent;
+            border-block-start: 0px none transparent;
+            border-block-end: 0px none transparent;
+            background-color: transparent;
+            box-shadow: none;
+            padding-block: 0.25rem;
+
+            button {
+                border-radius: 0.5rem;
+            }
         }
 
         .settings-tab-actions::-webkit-scrollbar {
@@ -309,7 +346,6 @@
             inline-size: stretch;
             border: none;
             border-radius: 16px;
-            background: var(--sv-surface-1, light-dark(#f4f6fa, #1c232d));
             max-inline-size: stretch;
             box-shadow: none;
             /*box-shadow: var(--sv-elev), 0 0 0 1px color-mix(in oklab, var(--sv-outline, light-dark(#c5cdd8, #3d4755)) 14%, transparent);*/
