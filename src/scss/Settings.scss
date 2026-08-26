@@ -64,8 +64,8 @@
         --sv-ring: color-mix(in oklab, var(--sv-outline, light-dark(#c5cdd8, #3d4755)) 55%, transparent);
 
         box-sizing: border-box;
-        display: grid;
-        grid-template-rows: auto minmax(0, 1fr) auto;
+        display: grid !important;
+        grid-template-rows: minmax(0, max-content) minmax(0, 1fr) minmax(0, max-content);
         grid-template-columns: minmax(0, 1fr);
         gap: 0;
         inline-size: 100%;
@@ -176,7 +176,7 @@
          */
 
         .settings-screen__body {
-            min-block-size: 0;
+            min-block-size: stretch;
             min-inline-size: 0;
             overflow: auto;
             -webkit-overflow-scrolling: touch;
@@ -191,6 +191,7 @@
             max-inline-size: stretch;
             background: var(--sv-surface-1, light-dark(#f4f6fa, #1c232d));
 
+            block-size: stretch;
             border-radius: 0px;
             overflow: hidden;
             overflow-y: auto;
@@ -203,6 +204,7 @@
             padding-block: 0.75rem;
             scrollbar-width: thin;
             scrollbar-color: var(--sv-outline, light-dark(#c5cdd8, #3d4755)) transparent;
+            max-block-size: stretch;
         }
 
         .settings-screen__body::-webkit-scrollbar {
