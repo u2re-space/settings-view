@@ -79,6 +79,7 @@ import { androidPackageForSku, apkManifestForSku, type CwspSku } from "com/confi
 import { requestCapacitorSettingsPermissionsAfterSave } from "boot/capacitor-settings-permissions";
 import { isCapacitorNative } from "boot/capacitor-permissions";
 import { attachSettingsInlineStylesWhenConnected } from "./settings-styles-attach";
+import "@fest-lib/icon";
 
 export type SettingsViewOptions = {
     isExtension: boolean;
@@ -95,12 +96,12 @@ export const resetSettingsViewCache = (): void => {
     cachedSettingsViewRoot = null;
 };
 
-const HUB_SECTION_LABELS: { id: HubSettingsSection; label: string }[] = [
-    { id: "hub", label: "Shell" },
-    { id: "explorer", label: "Explorer" },
-    { id: "document", label: "Document" },
-    { id: "process", label: "Process" },
-    { id: "transfer", label: "Transfer" }
+const HUB_SECTION_LABELS: { id: HubSettingsSection; label: string; icon: string }[] = [
+    { id: "hub", label: "Shell", icon: "squares-four" },
+    { id: "explorer", label: "Explorer", icon: "folder" },
+    { id: "document", label: "Document", icon: "books" },
+    { id: "process", label: "Process", icon: "lightning" },
+    { id: "transfer", label: "Transfer", icon: "arrows-left-right" }
 ];
 
 export const createSettingsView = (opts: SettingsViewOptions) => {
@@ -195,7 +196,10 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                 btn.type = "button";
                 btn.setAttribute("data-action", "open-settings-section");
                 btn.setAttribute("data-section", item.id);
-                btn.textContent = item.label;
+                btn.append(
+                    H`<ui-icon class="settings-sku-nav__icon" icon="${item.icon}" icon-style="duotone" aria-hidden="true"></ui-icon>` as HTMLElement,
+                    H`<span>${item.label}</span>` as HTMLElement
+                );
                 btn.classList.toggle("is-active", item.id === (contributionCtx.hubSection || "hub"));
                 nav.appendChild(btn);
             }

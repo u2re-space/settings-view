@@ -33,6 +33,8 @@
 
     .view-settings {
         color-scheme: inherit;
+        padding: 0px;
+        margin: 0px;
 
         /* ── semantic tokens: simple defaults owned by veela `core/misc/_tokens.scss`
          * (`--sv-bg/fg/muted/outline/surface-1/surface-2/primary/danger/divider/ring`).
@@ -70,8 +72,6 @@
         block-size: 100%;
         max-block-size: 100%;
         min-block-size: 0;
-        margin: 0;
-        padding: clamp(0.5rem, 2cqi, 1rem);
         overflow: hidden;
         text-align: start;
         /* WHY: @container rules below must size against the view, not a collapsed tab strip. */
@@ -114,15 +114,29 @@
         }
 
         h2 {
-            font-size: 1.25rem;
+            font-size: 1.3rem;
             font-weight: 700;
             letter-spacing: -0.02em;
+            padding-block: 0.5rem;
+            margin: 0px;
+            text-align: center;
         }
 
         h3 {
-            font-size: 0.94rem;
+            font-size: 1.2rem;
             font-weight: 600;
             letter-spacing: -0.01em;
+            padding-block: 0.5rem;
+            margin: 0px;
+            text-align: center;
+        }
+
+        h4 {
+            font-size: 1rem;
+            font-weight: 500;
+            letter-spacing: -0.01em;
+            padding-block: 0.5rem;
+            margin: 0px;
         }
 
         /* ── screen chrome ── */
@@ -170,12 +184,25 @@
             display: flex;
             flex-direction: column;
             gap: 1rem;
-            padding-block: 0.75rem;
+            padding-block: 0rem;
             scrollbar-width: thin;
             scrollbar-color: var(--sv-outline, light-dark(#c5cdd8, #3d4755)) transparent;
             touch-action: pan-y;
             max-inline-size: stretch;
             background: var(--sv-surface-1, light-dark(#f4f6fa, #1c232d));
+
+            border-radius: 0px;
+            overflow: hidden;
+            overflow-y: auto;
+            touch-action: pan-y;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding-block: 0.75rem;
+            scrollbar-width: thin;
+            scrollbar-color: var(--sv-outline, light-dark(#c5cdd8, #3d4755)) transparent;
         }
 
         .settings-screen__body::-webkit-scrollbar {
@@ -195,13 +222,14 @@
             gap: 0.5rem;
             flex-wrap: wrap;
             flex-shrink: 0;
-            padding-block: 0.125rem;
+            padding-block: 0.5rem;
             padding-inline: 0.25rem;
             background: var(--sv-surface-1, light-dark(#f4f6fa, #1c232d));
             /*border-block-start: 1px solid var(--sv-divider);*/
             /*background: color-mix(in oklab, var(--sv-surface-1, light-dark(#ffffff, #171c24)) 85%, var(--sv-bg, light-dark(#eef1f6, #0f1318)));
             box-shadow: 0 -10px 28px color-mix(in oklab, var(--sv-fg, light-dark(#12151a, #e8edf2)) 4%, transparent);*/
             max-inline-size: stretch;
+            padding-inline: 0.5rem;
         }
 
 
@@ -230,6 +258,7 @@
             background-color: var(--sv-surface-1, light-dark(#ffffff, #171c24));
             border-block-start: 1px solid var(--sv-divider);
             padding-block-end: 0.25rem;
+            padding-inline: 0.5rem;
         }
         
         /* ── tabs ── */
@@ -262,8 +291,21 @@
             box-shadow: none;
             padding-block: 0.25rem;
 
-            button {
+            .settings-tab-btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.4rem;
                 border-radius: 0.5rem;
+            }
+
+            .settings-sku-nav__icon {
+                --icon-size: 1.05rem;
+                flex: 0 0 auto;
+                inline-size: var(--icon-size);
+                block-size: var(--icon-size);
+                font-size: var(--icon-size);
+                color: currentColor;
+                pointer-events: none;
             }
         }
 
@@ -282,6 +324,7 @@
             padding: 0.5rem 0.875rem;
             min-block-size: 2.5rem;
             border: none;
+            border: 2px solid transparent;
             border-radius: 999px;
             background: color-mix(in oklab, var(--sv-surface-1, light-dark(#f4f6fa, #1c232d)) 94%, transparent);
             color: var(--sv-muted, light-dark(#5c6570, #a8b0bc));
@@ -302,9 +345,10 @@
             }
 
             &.is-active {
-                background: var(--sv-accent, var(--sv-primary, #5a7fff));
-                color: var(--sv-on-primary);
-                color: contrast-color(var(--sv-accent, var(--sv-primary, #5a7fff)));
+                border: 2px solid;
+                border-color: var(--sv-accent, var(--sv-primary, #5a7fff));
+                /*color: var(--sv-on-primary);
+                color: contrast-color(var(--sv-accent, var(--sv-primary, #5a7fff)));*/
                 /*box-shadow:
                     0 2px 16px color-mix(in oklab, var(--sv-accent, var(--sv-primary, #5a7fff)) 42%, transparent),
                     0 0 0 1px color-mix(in oklab, var(--sv-accent, var(--sv-primary, #5a7fff)) 55%, transparent);*/
@@ -349,10 +393,12 @@
             max-inline-size: stretch;
             box-shadow: none;
             /*box-shadow: var(--sv-elev), 0 0 0 1px color-mix(in oklab, var(--sv-outline, light-dark(#c5cdd8, #3d4755)) 14%, transparent);*/
+            background: var(--sv-surface-2, light-dark(#ffffff, #171c24));
+            margin-inline: 0.5rem;
 
             @container settings-view (max-inline-size: 480px) {
-                padding: 0.875rem;
-                border-radius: 14px;
+                padding: 0.75rem;
+                border-radius: 12px;
             }
         }
 
@@ -373,8 +419,11 @@
             margin: 0;
             pointer-events: auto;
             max-inline-size: stretch;
+            margin-block-start: 0.5rem;
 
             & > span {
+                padding-block: 0.25rem;
+                padding-block-end: 0px;
                 font-size: 0.75rem;
                 font-weight: 500;
                 color: var(--sv-muted, light-dark(#5c6570, #a8b0bc));
@@ -389,6 +438,17 @@
             }
         }
 
+        [data-contribution] {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-inline-size: stretch;
+            padding: 0.5rem;
+            border-radius: 12px;
+            background: var(--sv-surface-2, light-dark(#ffffff, #171c24));
+            border: 0px solid color-mix(in oklab, var(--sv-outline, light-dark(#c5cdd8, #3d4755)) 40%, transparent);
+        }
+
         .field-hint {
             margin: 0 0 0.75rem;
             font-size: 0.85em;
@@ -396,6 +456,7 @@
             color: var(--sv-muted, light-dark(#5c6570, #a8b0bc));
             opacity: 0.95;
             max-inline-size: stretch;
+            padding-inline: 0.25rem;
         }
 
         .appearance-swatches {
@@ -443,7 +504,7 @@
             padding: 0.5rem 0.65rem;
             border-radius: 10px;
             /*border: 1px solid color-mix(in oklab, var(--sv-outline, light-dark(#c5cdd8, #3d4755)) 45%, transparent);*/
-            background: var(--sv-surface-2, light-dark(#ffffff, #171c24));
+            background: var(--sv-surface-1, light-dark(#ffffff, #171c24));
             color: var(--sv-fg, light-dark(#12151a, #e8edf2));
             -webkit-text-fill-color: var(--sv-fg, light-dark(#12151a, #e8edf2));
             caret-color: var(--sv-fg, light-dark(#12151a, #e8edf2));
@@ -476,7 +537,7 @@
             background-repeat: no-repeat;
             pointer-events: auto;
             max-inline-size: stretch;
-            background-color: var(--sv-surface-2, light-dark(#ffffff, #171c24));
+            background-color: var(--sv-surface-1, light-dark(#ffffff, #171c24));
             border: none 0px transparent;
             outline: none 0px transparent;
             box-shadow: none;
@@ -492,9 +553,9 @@
             min-block-size: 2.5rem;
             border: none;
             border-radius: 999px;
-            background: color-mix(in oklab, var(--sv-surface-2, light-dark(#ffffff, #171c24)) 90%, transparent);
+            background: color-mix(in oklab, var(--sv-surface-1, light-dark(#ffffff, #171c24)) 90%, transparent);
             color: var(--sv-fg, var(--color-on-surface));
-            color: contrast-color(var(--sv-surface-2, var(--color-surface)));
+            color: contrast-color(var(--sv-surface-1, var(--color-surface)));
             font-size: 0.8125rem;
             font-weight: 500;
             cursor: pointer;
@@ -731,8 +792,8 @@
         .view-settings__btn {
             padding: 0.55rem 1.1rem;
             border-radius: 8px;
-            border: 1px solid color-mix(in oklab, var(--sv-outline, light-dark(#c5cdd8, #3d4755)) 40%, transparent);
-            background: transparent;
+            border: 0px solid color-mix(in oklab, var(--sv-outline, light-dark(#c5cdd8, #3d4755)) 40%, transparent);
+            background: var(--sv-surface-1, light-dark(#ffffff, #171c24));
             color: var(--sv-fg, light-dark(#12151a, #e8edf2));
             cursor: pointer;
             max-inline-size: stretch;
@@ -935,6 +996,18 @@
             max-inline-size: stretch;
         }
 
+        input[type="number"] {
+            &::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+
+            &::-webkit-outer-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+        }
+
         /* ── touch targets & responsive footer ── */
         @container settings-view (max-inline-size: 1024px) {
             padding: 0.65rem;
@@ -974,9 +1047,11 @@
                 align-items: stretch;
                 gap: 0.35rem;
                 max-inline-size: stretch;
-                padding-block: 0.35rem 0.2rem;
+                padding-block: 0.5rem;
                 /* WHY: window is full-bleed; leave the Home FAB corner free. */
+                padding-inline: 0.5rem;
                 padding-inline-end: 3.25rem;
+                
 
                 .btn.primary {
                     inline-size: 100%;
