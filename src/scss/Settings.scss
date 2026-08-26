@@ -201,10 +201,132 @@
             display: flex;
             flex-direction: column;
             gap: 1rem;
-            padding-block: 0.75rem;
+            padding-block: 0px;
             scrollbar-width: thin;
             scrollbar-color: var(--sv-outline, light-dark(#c5cdd8, #3d4755)) transparent;
+            scrollbar-gutter: stable;
             max-block-size: stretch;
+            position: relative;
+            anchor-name: --shape-anchor;
+
+            z-index: 0;
+
+            /*
+            * Отступ вокруг бокса.
+            */
+            /*
+            * Радиус углов исходного бокса.
+            * Радиус выреза увеличиваем вместе с padding.
+            */
+
+            --padding: 0.5rem;
+            --radius: 0.5rem;
+
+            --box-x: calc(var(--padding) + 0.5rem);
+            --box-y: calc(var(--padding) + 0.5rem);
+            --box-width: calc(100% - var(--padding) * 2 - 1rem);
+            --box-height: calc(100% - var(--padding) * 2 - 1rem);
+
+        
+
+            --hole-x: calc(var(--box-x) - var(--padding));
+            --hole-y: calc(var(--box-y) - var(--padding));
+
+            --hole-width: calc(
+                var(--box-width) + var(--padding) + var(--padding)
+            );
+
+            --hole-height: calc(
+                var(--box-height) + var(--padding) + var(--padding)
+            );
+
+            --hole-radius: calc(var(--radius) + var(--padding));
+
+
+            &::after {
+                content: "";
+                position: fixed;
+                position-anchor: --shape-anchor;
+                inset: auto;
+                inset-block-end: anchor(end);
+                inset-block-start: anchor(start);
+                inset-inline-start: anchor(start);
+                inset-inline-end: anchor(end);
+                z-index: 1;
+                background: var(--sv-surface-1, light-dark(#f4f6fa, #1c232d));
+                pointer-events: none;
+                touch-action: pan-y;
+                
+                inline-size: calc(anchor-size(self-inline) - var(--padding));
+                block-size: anchor-size(self-block);
+
+                clip-path: shape(
+                    evenodd from
+                    0 0,
+                    line to 100% 0,
+                    line to 100% 100%,
+                    line to 0 100%,
+                    close,
+
+                    move to
+                        calc(var(--hole-x) + var(--hole-radius))
+                        var(--hole-y),
+
+                    line to
+                        calc(
+                        var(--hole-x) +
+                        var(--hole-width) -
+                        var(--hole-radius)
+                        )
+                        var(--hole-y),
+
+                    arc to
+                        calc(var(--hole-x) + var(--hole-width))
+                        calc(var(--hole-y) + var(--hole-radius))
+                        of var(--hole-radius) cw,
+
+                    line to
+                        calc(var(--hole-x) + var(--hole-width))
+                        calc(
+                        var(--hole-y) +
+                        var(--hole-height) -
+                        var(--hole-radius)
+                        ),
+
+                    arc to
+                        calc(
+                        var(--hole-x) +
+                        var(--hole-width) -
+                        var(--hole-radius)
+                        )
+                        calc(var(--hole-y) + var(--hole-height))
+                        of var(--hole-radius) cw,
+
+                    line to
+                        calc(var(--hole-x) + var(--hole-radius))
+                        calc(var(--hole-y) + var(--hole-height)),
+
+                    arc to
+                        var(--hole-x)
+                        calc(
+                        var(--hole-y) +
+                        var(--hole-height) -
+                        var(--hole-radius)
+                        )
+                        of var(--hole-radius) cw,
+
+                    line to
+                        var(--hole-x)
+                        calc(var(--hole-y) + var(--hole-radius)),
+
+                    arc to
+                        calc(var(--hole-x) + var(--hole-radius))
+                        var(--hole-y)
+                        of var(--hole-radius) cw,
+
+                    close
+                );
+            }
         }
 
         .settings-screen__body::-webkit-scrollbar {
@@ -234,6 +356,10 @@
             padding-inline: 0.5rem;
         }
 
+        .ext-note {
+            background: var(--sv-surface-1, light-dark(#f4f6fa, #1c232d));
+        }
+
 
         .settings-tab-actions {
             display: flex;
@@ -261,6 +387,17 @@
             border-block-start: 1px solid var(--sv-divider);
             padding-block-end: 0.25rem;
             padding-inline: 0.5rem;
+        }
+
+        /* WHY: remove the border and background when there is no SKU nav */
+        &:not(:has(.settings-sku-nav)) {
+            .settings-tab-actions {
+                margin: 0px;
+                border: 0px none transparent;
+                border-block-start: 0px none transparent;
+                border-block-end: 1px solid var(--sv-divider);
+                background-color: transparent;
+            }
         }
         
         /* ── tabs ── */
