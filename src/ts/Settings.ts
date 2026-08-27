@@ -75,7 +75,7 @@ import {
     loadSettingsHydratedFromSync,
     persistContributionsViaSync
 } from "./settings-contributions";
-import { androidPackageForSku, apkManifestForSku, type CwspSku } from "com/config/ecosystem-skus";
+import { androidPackageForSku, apkManifestForSku, isCwspSku, type CwspSku } from "com/config/ecosystem-skus";
 import { requestCapacitorSettingsPermissionsAfterSave } from "boot/capacitor-settings-permissions";
 import { isCapacitorNative } from "boot/capacitor-permissions";
 import { attachSettingsInlineStylesWhenConnected } from "./settings-styles-attach";
@@ -228,18 +228,57 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
 
     const hasPanel = (panelId: string) => hasBuiltInSettingsPanel(root, panelId);
 
-    /** Launcher sibling section updates that SKU's APK — not the launcher package. */
-    const apkUpdateTarget = (): { sku: CwspSku; packageName: string; manifest: string } => {
+    /** Launcher sibling section / fleet row updates that SKU's APK — not always the launcher package. */
+    const apkSkuFromEl = (el: Element | null): CwspSku | "" => {
+        const raw = String(
+            el?.getAttribute("data-apk-sku") ||
+                el?.closest("[data-apk-sku-row]")?.getAttribute("data-apk-sku-row") ||
+                ""
+        ).trim();
+        return raw && isCwspSku(raw) && raw !== "crx" ? raw : "";
+    };
+
+    const apkUpdateTarget = (
+        from?: Element | null
+    ): { sku: CwspSku; packageName: string; manifest: string } => {
+        const explicit = apkSkuFromEl(from || null);
         const section = canonicalHubSettingsSection(root.dataset.hubSettingsSection || "hub");
         const sku: CwspSku =
-            resolveSettingsAreaNavMode() !== "none" && section !== "hub"
+            explicit ||
+            (resolveSettingsAreaNavMode() !== "none" && section !== "hub"
                 ? (skuForHubSettingsSection(section) as CwspSku)
-                : ((readCwspSku() || "launcher") as CwspSku);
+                : ((readCwspSku() || "launcher") as CwspSku));
         return {
             sku,
             packageName: androidPackageForSku(sku) || "",
             manifest: apkManifestForSku(sku)
         };
+    };
+
+    const paintApkVersion = (el: HTMLElement | null, echo: Record<string, unknown>, result?: unknown): void => {
+        if (!el) return;
+        const anyResult = result as { versionName?: string; versionCode?: number; installed?: boolean } | undefined;
+        const name = String(echo.localVersionName || echo.versionName || anyResult?.versionName || "").trim();
+        const code = echo.localVersionCode ?? echo.versionCode ?? anyResult?.versionCode;
+        const sig = String(echo.localSignatureSha256 || echo.signatureSha256 || "").slice(0, 12);
+        const remoteName = String(echo.remoteVersionName || "").trim();
+        const remoteCode = echo.remoteVersionCode;
+        const installed =
+            echo.installed === false || anyResult?.installed === false
+                ? false
+                : echo.installed === true ||
+                  anyResult?.installed === true ||
+                  Boolean(name && code != null && code !== 0 && code !== "?");
+        const remoteBit =
+            remoteCode != null && remoteCode !== ""
+                ? ` · gateway ${remoteName || "?"} (${remoteCode})`
+                : "";
+        if (!installed) {
+            el.textContent = `Not installed — Download & install to sideload.${remoteBit}`;
+            return;
+        }
+        el.textContent =
+            `Installed: ${name || "?"} (${code ?? "?"})` + (sig ? ` · sig ${sig}…` : "") + remoteBit;
     };
 
     const field = (sel: string) => root.querySelector(sel) as HTMLInputElement | HTMLSelectElement | null;
@@ -732,16 +771,17 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             // Capacitor: hydrate installed version + signing cert fingerprint in App update section.
             if (isCapacitorNative()) {
                 void import("com/routing/native/cws-bridge")
-                    .then((m) => m.invokeCwsNative("app:info", apkUpdateTarget()))
-                    .then((result) => {
-                        const echo = (result as any)?.echo || {};
-                        const el = root.querySelector("[data-apk-local-version]") as HTMLElement | null;
-                        if (!el) return;
-                        const sig = String(echo?.signatureSha256 || "").slice(0, 12);
-                        const anyResult = result as any;
-                        el.textContent =
-                            `Installed: ${echo?.versionName || anyResult?.versionName || "?"} (${echo?.versionCode ?? anyResult?.versionCode ?? "?"})` +
-                            (sig ? ` · sig ${sig}…` : "");
+                    .then(async (m) => {
+                        const hints = [
+                            ...root.querySelectorAll<HTMLElement>("[data-apk-local-version]")
+                        ];
+                        if (!hints.length) return;
+                        await Promise.all(
+                            hints.map(async (el) => {
+                                const result = await m.invokeCwsNative("app:info", apkUpdateTarget(el));
+                                paintApkVersion(el, ((result as { echo?: Record<string, unknown> })?.echo || {}) as Record<string, unknown>, result);
+                            })
+                        );
                     })
                     .catch(() => {
                         /* native bridge unavailable */
@@ -1276,8 +1316,10 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                     const allowInsecureTls =
                         insecureEl?.checked ?? Boolean((s.core as any)?.allowInsecureTls);
                     const { invokeCwsNative } = await import("com/routing/native/cws-bridge");
+                    const clicked = (apkInstallBtn || apkCheckBtn) as HTMLElement;
+                    const target = apkUpdateTarget(clicked);
                     const result = await invokeCwsNative(channel, {
-                        ...apkUpdateTarget(),
+                        ...target,
                         source,
                         endpointUrl,
                         token,
@@ -1293,11 +1335,13 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                         setNote(String(err), { tone: "err" });
                         return;
                     }
-                    if (versionEl && (echo?.localVersionCode != null || echo?.localVersionName)) {
-                        const sig = String(echo?.localSignatureSha256 || "").slice(0, 12);
-                        versionEl.textContent =
-                            `Installed: ${echo.localVersionName || "?"} (${echo.localVersionCode ?? "?"})` +
-                            (sig ? ` · sig ${sig}…` : "");
+                    const rowHint =
+                        clicked.closest("[data-apk-sku-row]")?.querySelector("[data-apk-local-version]") as
+                            | HTMLElement
+                            | null;
+                    const hint = rowHint || versionEl;
+                    if (hint && (echo?.localVersionCode != null || echo?.localVersionName || echo?.versionName)) {
+                        paintApkVersion(hint, echo, result);
                     }
                     if (apkInstallBtn) {
                         setNote(
@@ -1312,6 +1356,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                     const remote = echo?.remoteVersionCode ?? "?";
                     const avail = echo?.updateAvailable === true;
                     const sigOk = echo?.signatureCompatible !== false;
+                    const installed = echo?.installed === true;
                     if (!sigOk) {
                         setNote(
                             `Signature mismatch — remote APK not signed like this install (local ${local}, remote ${remote}).`,
@@ -1319,10 +1364,17 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                         );
                         return;
                     }
+                    if (!installed) {
+                        setNote(
+                            `${target.sku}: not installed — remote ${remote} (${echo?.remoteVersionName || "?"}). Download & install to sideload.`,
+                            { tone: "warn" }
+                        );
+                        return;
+                    }
                     setNote(
                         avail
-                            ? `Update available: ${local} → ${remote} (${echo?.remoteVersionName || "?"}).`
-                            : `Up to date (local ${local}, remote ${remote}).`,
+                            ? `${target.sku}: update available ${local} → ${remote} (${echo?.remoteVersionName || "?"}).`
+                            : `${target.sku}: same version (local ${local}, remote ${remote}) — Download & install will sideload.`,
                         { tone: avail ? "warn" : "ok" }
                     );
                 } catch (e) {

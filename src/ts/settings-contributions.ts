@@ -2,8 +2,8 @@
  * Filename: settings-contributions.ts
  * FullPath: modules/views/settings-view/src/ts/settings-contributions.ts
  * FIND:settings-profile
- * Change date and time: 15.10.00_24.08.2026
- * Reason for changes: apk-update is always a dedicated Updates tab.
+ * Change date and time: 14.30.00_27.08.2026
+ * Reason for changes: Document/explorer/process APKs mount Updates; VDS/PWA never show APK install.
  */
 /**
  * Settings-view glue: mount shared contribution registry tabs into the host UI.
@@ -92,8 +92,9 @@ const isNativeApkHost = (): boolean => {
 export const resolveSettingsSurface = (): SettingsContributionContext["surface"] => {
     try {
         const sku = readCwspSku();
-        if (sku === "document") return "markdown";
-        if (sku === "process") return "capacitor";
+        // WHY: document PWA stays markdown (no APK tab). Document APK needs capacitor so Updates mounts.
+        if (sku === "document") return isNativeApkHost() ? "capacitor" : "markdown";
+        if (sku === "process" || sku === "explorer") return isNativeApkHost() ? "capacitor" : "web";
         // WHY: environment profile still runs on a Capacitor APK — Updates needs that surface.
         if (sku === "launcher") return isNativeApkHost() ? "capacitor" : "environment";
         if (sku === "crx") return "crx";
@@ -154,10 +155,11 @@ export const resolveSettingsContributionContext = (
     const hubSection = fromHub || fromAreaNav || hubSectionOverride || undefined;
     const sku = hubSection ? skuForHubSettingsSection(hubSection) : readCwspSku();
     let surface = resolveSettingsSurface();
-    if (hubSection === "document") surface = "markdown";
-    else if (hubSection === "transfer") surface = "web";
-    else if (hubSection === "process" || hubSection === "explorer") surface = "web";
-    else if (hubSection === "hub") surface = "environment";
+    if (hubSection === "document") surface = isNativeApkHost() ? "capacitor" : "markdown";
+    else if (hubSection === "transfer") surface = isNativeApkHost() ? "capacitor" : "web";
+    else if (hubSection === "process" || hubSection === "explorer") {
+        surface = isNativeApkHost() ? "capacitor" : "web";
+    } else if (hubSection === "hub") surface = "environment";
     return {
         isExtension: Boolean(isExtension),
         surface,
@@ -174,8 +176,8 @@ const contributionVisible = (
     const surfaces = contribution.surfaces;
     if (surfaces?.length && !surfaces.includes(ctx.surface)) return false;
     if (contribution.excludeSurfaces?.includes(ctx.surface)) return false;
-    // WHY: VDS desktop environment has no APK; launcher APK still reports environment in some boots.
-    if (contribution.id === "apk-update" && ctx.surface === "environment" && !isNativeApkHost()) {
+    // INVARIANT: Updates is APK-only — VDS / PWA / CRX must not show install.
+    if (contribution.id === "apk-update" && !isNativeApkHost()) {
         return false;
     }
     // INVARIANT: CWSP Control tab belongs to transfer (and CRX/desktop hosts), not sibling APKs.
