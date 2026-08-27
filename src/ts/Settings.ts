@@ -255,22 +255,50 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         };
     };
 
+    const apkVersionCode = (value: unknown): number | null => {
+        if (typeof value === "number" && Number.isFinite(value)) return value;
+        if (typeof value === "string" && value.trim() && value !== "?") {
+            const n = Number(value);
+            return Number.isFinite(n) ? n : null;
+        }
+        return null;
+    };
+
+    const compareApkVersionName = (remote: string, local: string): number => {
+        const parts = (raw: string) =>
+            String(raw || "")
+                .trim()
+                .split(/[+-]/)[0]
+                .split(".")
+                .map((bit) => Number(String(bit).replace(/[^0-9]/g, "")) || 0);
+        const a = parts(remote);
+        const b = parts(local);
+        if (!String(remote || "").trim() && !String(local || "").trim()) return 0;
+        const n = Math.max(a.length, b.length);
+        for (let i = 0; i < n; i++) {
+            const av = a[i] || 0;
+            const bv = b[i] || 0;
+            if (av !== bv) return av < bv ? -1 : 1;
+        }
+        return 0;
+    };
+
     const paintApkVersion = (el: HTMLElement | null, echo: Record<string, unknown>, result?: unknown): void => {
         if (!el) return;
         const anyResult = result as { versionName?: string; versionCode?: number; installed?: boolean } | undefined;
         const name = String(echo.localVersionName || echo.versionName || anyResult?.versionName || "").trim();
-        const code = echo.localVersionCode ?? echo.versionCode ?? anyResult?.versionCode;
+        const code = apkVersionCode(echo.localVersionCode ?? echo.versionCode ?? anyResult?.versionCode);
         const sig = String(echo.localSignatureSha256 || echo.signatureSha256 || "").slice(0, 12);
         const remoteName = String(echo.remoteVersionName || "").trim();
-        const remoteCode = echo.remoteVersionCode;
+        const remoteCode = apkVersionCode(echo.remoteVersionCode);
         const installed =
             echo.installed === false || anyResult?.installed === false
                 ? false
                 : echo.installed === true ||
                   anyResult?.installed === true ||
-                  Boolean(name && code != null && code !== 0 && code !== "?");
+                  Boolean(name && code != null && code !== 0);
         const remoteBit =
-            remoteCode != null && remoteCode !== ""
+            remoteCode != null
                 ? ` · gateway ${remoteName || "?"} (${remoteCode})`
                 : "";
         if (!installed) {
@@ -279,6 +307,14 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         }
         el.textContent =
             `Installed: ${name || "?"} (${code ?? "?"})` + (sig ? ` · sig ${sig}…` : "") + remoteBit;
+    };
+
+    const apkBridgeFields = () => {
+        const srcEl = root.querySelector('[data-field="shell.apkUpdateSource"]') as HTMLSelectElement | null;
+        const endpointEl = root.querySelector('[data-field="core.endpointUrl"]') as HTMLInputElement | null;
+        const tokenEl = root.querySelector('[data-field="core.ecosystemToken"]') as HTMLInputElement | null;
+        const insecureEl = root.querySelector('[data-field="core.allowInsecureTls"]') as HTMLInputElement | null;
+        return { srcEl, endpointEl, tokenEl, insecureEl };
     };
 
     const field = (sel: string) => root.querySelector(sel) as HTMLInputElement | HTMLSelectElement | null;
@@ -768,7 +804,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             applyTheme(s);
             applyContributions(root, s, contributionCtx);
             opts.onTheme?.(((s?.appearance?.theme as string) || "auto") as "auto" | "light" | "dark");
-            // Capacitor: hydrate installed version + signing cert fingerprint in App update section.
+            // Capacitor: hydrate local + gateway versions so a newer sibling APK shows without tapping Check.
             if (isCapacitorNative()) {
                 void import("com/routing/native/cws-bridge")
                     .then(async (m) => {
@@ -776,10 +812,46 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                             ...root.querySelectorAll<HTMLElement>("[data-apk-local-version]")
                         ];
                         if (!hints.length) return;
+                        const { srcEl, endpointEl, tokenEl, insecureEl } = apkBridgeFields();
+                        const source = (srcEl?.value || s.shell?.apkUpdateSource || "wan").trim();
+                        const endpointUrl = (endpointEl?.value || s.core?.endpointUrl || "").trim();
+                        const token = (tokenEl?.value || "").trim() || resolveEcosystemToken(s);
+                        const allowInsecureTls =
+                            insecureEl?.checked ?? Boolean((s.core as { allowInsecureTls?: boolean })?.allowInsecureTls);
                         await Promise.all(
                             hints.map(async (el) => {
-                                const result = await m.invokeCwsNative("app:info", apkUpdateTarget(el));
-                                paintApkVersion(el, ((result as { echo?: Record<string, unknown> })?.echo || {}) as Record<string, unknown>, result);
+                                const target = apkUpdateTarget(el);
+                                try {
+                                    const result = await m.invokeCwsNative("app:update:check", {
+                                        ...target,
+                                        source,
+                                        endpointUrl,
+                                        token,
+                                        ecosystemToken: token,
+                                        allowInsecureTls
+                                    });
+                                    const echo = ((result as { echo?: Record<string, unknown> })?.echo ||
+                                        {}) as Record<string, unknown>;
+                                    if (echo.error) {
+                                        const info = await m.invokeCwsNative("app:info", target);
+                                        paintApkVersion(
+                                            el,
+                                            ((info as { echo?: Record<string, unknown> })?.echo ||
+                                                {}) as Record<string, unknown>,
+                                            info
+                                        );
+                                        return;
+                                    }
+                                    paintApkVersion(el, echo, result);
+                                } catch {
+                                    const info = await m.invokeCwsNative("app:info", target);
+                                    paintApkVersion(
+                                        el,
+                                        ((info as { echo?: Record<string, unknown> })?.echo ||
+                                            {}) as Record<string, unknown>,
+                                        info
+                                    );
+                                }
                             })
                         );
                     })
@@ -1294,18 +1366,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                 setNote(apkInstallBtn ? "Downloading APK…" : "Checking for update…", { tone: "warn" });
                 try {
                     const s = await loadSettings();
-                    const srcEl = root.querySelector(
-                        '[data-field="shell.apkUpdateSource"]'
-                    ) as HTMLSelectElement | null;
-                    const endpointEl = root.querySelector(
-                        '[data-field="core.endpointUrl"]'
-                    ) as HTMLInputElement | null;
-                    const tokenEl = root.querySelector(
-                        '[data-field="core.ecosystemToken"]'
-                    ) as HTMLInputElement | null;
-                    const insecureEl = root.querySelector(
-                        '[data-field="core.allowInsecureTls"]'
-                    ) as HTMLInputElement | null;
+                    const { srcEl, endpointEl, tokenEl, insecureEl } = apkBridgeFields();
                     const versionEl = root.querySelector(
                         "[data-apk-local-version]"
                     ) as HTMLElement | null;
@@ -1314,7 +1375,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                     const token =
                         (tokenEl?.value || "").trim() || resolveEcosystemToken(s);
                     const allowInsecureTls =
-                        insecureEl?.checked ?? Boolean((s.core as any)?.allowInsecureTls);
+                        insecureEl?.checked ?? Boolean((s.core as { allowInsecureTls?: boolean })?.allowInsecureTls);
                     const { invokeCwsNative } = await import("com/routing/native/cws-bridge");
                     const clicked = (apkInstallBtn || apkCheckBtn) as HTMLElement;
                     const target = apkUpdateTarget(clicked);
@@ -1352,29 +1413,49 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                         );
                         return;
                     }
-                    const local = echo?.localVersionCode ?? "?";
-                    const remote = echo?.remoteVersionCode ?? "?";
-                    const avail = echo?.updateAvailable === true;
+                    const local = apkVersionCode(echo?.localVersionCode);
+                    const remote = apkVersionCode(echo?.remoteVersionCode);
+                    const localName = String(echo?.localVersionName || "").trim();
+                    const remoteName = String(echo?.remoteVersionName || "").trim();
+                    const avail =
+                        echo?.updateAvailable === true ||
+                        (result as { updateAvailable?: boolean })?.updateAvailable === true ||
+                        (remote != null && local != null && remote > local) ||
+                        compareApkVersionName(remoteName, localName) > 0;
                     const sigOk = echo?.signatureCompatible !== false;
                     const installed = echo?.installed === true;
+                    const reason = String(echo?.reason || "");
                     if (!sigOk) {
                         setNote(
-                            `Signature mismatch — remote APK not signed like this install (local ${local}, remote ${remote}).`,
+                            `Signature mismatch — remote APK not signed like this install (local ${local ?? "?"}, remote ${remote ?? "?"}).`,
                             { tone: "err" }
                         );
                         return;
                     }
                     if (!installed) {
                         setNote(
-                            `${target.sku}: not installed — remote ${remote} (${echo?.remoteVersionName || "?"}). Download & install to sideload.`,
+                            `${target.sku}: not installed — remote ${remote ?? "?"} (${remoteName || "?"}). Download & install to sideload.`,
                             { tone: "warn" }
                         );
                         return;
                     }
+                    if (reason === "gateway-older" || (remote != null && local != null && remote < local && !avail)) {
+                        setNote(
+                            `${target.sku}: gateway older (local ${localName || "?"} ${local}, remote ${remoteName || "?"} ${remote}). Publish the newer APK.`,
+                            { tone: "warn" }
+                        );
+                        return;
+                    }
+                    if (local == null && remote == null) {
+                        setNote(`${target.sku}: native echo missing versions — try Check again.`, {
+                            tone: "err"
+                        });
+                        return;
+                    }
                     setNote(
                         avail
-                            ? `${target.sku}: update available ${local} → ${remote} (${echo?.remoteVersionName || "?"}).`
-                            : `${target.sku}: same version (local ${local}, remote ${remote}) — Download & install will sideload.`,
+                            ? `${target.sku}: update available ${localName || local} → ${remoteName || remote} (${local ?? "?"} → ${remote ?? "?"}).`
+                            : `${target.sku}: current (local ${localName || "?"} ${local ?? "?"}, remote ${remoteName || "?"} ${remote ?? "?"}) — Download & install will sideload.`,
                         { tone: avail ? "warn" : "ok" }
                     );
                 } catch (e) {
