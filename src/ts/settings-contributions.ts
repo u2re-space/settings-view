@@ -159,7 +159,7 @@ export const resolveSettingsContributionContext = (
     else if (hubSection === "transfer") surface = isNativeApkHost() ? "capacitor" : "web";
     else if (hubSection === "process" || hubSection === "explorer") {
         surface = isNativeApkHost() ? "capacitor" : "web";
-    } else if (hubSection === "hub") surface = "environment";
+    } else if (hubSection === "hub") surface = isNativeApkHost() ? "capacitor" : "environment";
     return {
         isExtension: Boolean(isExtension),
         surface,
