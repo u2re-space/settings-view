@@ -243,6 +243,10 @@
             --hole-radius: calc(var(--radius) + var(--padding));
 
 
+            /* WHY: WebView often has CSS anchor but not `clip-path: shape()`.
+             * The frame then becomes a solid `position:fixed` fill over Appearance
+             * and can stay on top after navigating back to Explorer. */
+            @supports (clip-path: shape(evenodd from 0 0)) {
             &::after {
                 content: "";
                 position: fixed;
@@ -327,6 +331,8 @@
                     close
                 );
             }
+            }
+
         }
 
         .settings-screen__body::-webkit-scrollbar {
