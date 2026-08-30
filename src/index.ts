@@ -7,7 +7,7 @@
 
 import { H } from "@fest-lib/lure";
 import { ref } from "@fest-lib/object";
-import { removeAdopted } from "@fest-lib/dom";
+import { removeAdopted } from "@fest-lib/style-lib";
 import type { View, ViewOptions, ViewLifecycle, ShellContext } from "shells/types";
 import type { BaseViewOptions } from "views/types";
 import { SettingsChannelAction } from "views/apis/channel-actions";
