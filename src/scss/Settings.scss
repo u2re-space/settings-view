@@ -8,7 +8,7 @@
  * (source of truth: veela `core/misc/_tokens.scss`). The `light-dark()` fallbacks are kept
  * for shadow-DOM self-sufficiency when veela is not loaded — do not remove.
  */
-@layer settings-view {
+@layer components {
     /* Light DOM (md.u2re.space) + host-context for open shadow shells. */
     :is(html[data-theme="light"] .view-settings, :host-context(html[data-theme="light"]) .view-settings) {
         color-scheme: light only;
