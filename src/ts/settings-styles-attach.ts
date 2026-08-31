@@ -5,6 +5,8 @@
  * Reason for changes: Critical CSS keeps settings tab strip full-width (was collapsing to 0px).
  */
 
+import { unwrapCssLayer } from "@fest-lib/style-lib";
+
 // @ts-ignore — Vite inline SCSS
 import settingsStyles from "../scss/Settings.scss?inline";
 
@@ -15,19 +17,8 @@ const STYLE_MARKER = "data-settings-view-css";
  * COMPAT: Vite often prefixes `@charset` and the SCSS file may start with a block comment, so a
  * strict `^@layer` match never fired and tab/panel rules stayed layered (and lost).
  */
-const normalizeInlineSettingsCss = (raw: string): string => {
-    let css = String(raw || "").trim();
-    css = css.replace(/^(@charset\s+[^;]+;\s*)+/i, "");
-    // Strip leading block comments (and any leftover whitespace) until @layer or other rules.
-    for (let i = 0; i < 8; i++) {
-        const next = css.replace(/^\/\*[\s\S]*?\*\/\s*/, "");
-        if (next === css) break;
-        css = next.trim();
-    }
-    const layered = css.match(/^@layer\s+settings-view\s*\{([\s\S]*)\}\s*$/);
-    if (layered) css = layered[1].trim();
-    return css;
-};
+const normalizeInlineSettingsCss = (raw: string): string =>
+    unwrapCssLayer(String(raw || ""), "settings-view");
 
 /**
  * Layout-only fallback when SCSS inline import is empty.
