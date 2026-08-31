@@ -172,7 +172,12 @@ const contributionVisible = (
     contribution: SettingsContribution,
     ctx: SettingsContributionContext
 ): boolean => {
-    if (contribution.requiresView && !isEnabledView(contribution.requiresView)) return false;
+    if (contribution.requiresView && !isEnabledView(contribution.requiresView)) {
+        // WHY: hub /settings/process may not enable the workcenter view; the panel is still this SKU's.
+        if (!(contribution.id === "workcenter" && (ctx.sku === "process" || ctx.hubSection === "process"))) {
+            return false;
+        }
+    }
     const surfaces = contribution.surfaces;
     if (surfaces?.length && !surfaces.includes(ctx.surface)) return false;
     if (contribution.excludeSurfaces?.includes(ctx.surface)) return false;
