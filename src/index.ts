@@ -7,7 +7,7 @@
 
 import { H } from "@fest-lib/lure";
 import { ref } from "@fest-lib/object";
-import { removeAdopted } from "@fest-lib/style-lib";
+import { removeAdopted, scheduleBakeScreenColors, unbakeScreenColors } from "@fest-lib/style-lib";
 import type { View, ViewOptions, ViewLifecycle, ShellContext } from "shells/types";
 import type { BaseViewOptions } from "views/types";
 import { SettingsChannelAction } from "views/apis/channel-actions";
@@ -126,6 +126,7 @@ export class SettingsView implements View {
     lifecycle: ViewLifecycle = {
         // WHY: Append the view to the shell before adopting — then `getRootNode()` is the shell ShadowRoot.
         onUnmount: () => {
+            unbakeScreenColors(this.element);
             this.clearSettingsStylesheet();
         },
         onShow: () => {
@@ -133,9 +134,11 @@ export class SettingsView implements View {
             this.syncHubSectionFromLocation();
             void this.refreshLauncherSiblingNav();
             this.element?.dispatchEvent(new CustomEvent("cwsp-settings-resync", { bubbles: false }));
+            scheduleBakeScreenColors(this.element);
         },
         onHide: () => {
             /* WHY: Keep inline Settings.scss on cached view roots — clearing on hide blanked Capacitor APK. */
+            unbakeScreenColors(this.element);
         },
     };
 

@@ -5,7 +5,7 @@
  * Reason for changes: Critical CSS keeps settings tab strip full-width (was collapsing to 0px).
  */
 
-import { unwrapCssLayer } from "@fest-lib/style-lib";
+import { scheduleBakeScreenColors, unwrapCssLayer } from "@fest-lib/style-lib";
 
 // @ts-ignore — Vite inline SCSS
 import settingsStyles from "../scss/Settings.scss?inline";
@@ -40,7 +40,10 @@ const CRITICAL_SETTINGS_CSS = `
 export const attachSettingsInlineStyles = (host: HTMLElement | null | undefined): void => {
     if (host && !host.classList?.contains("view-settings")) return;
     if (typeof document === "undefined") return;
-    if (document.head?.querySelector(`style[${STYLE_MARKER}]`)) return;
+    if (document.head?.querySelector(`style[${STYLE_MARKER}]`)) {
+        if (host) scheduleBakeScreenColors(host);
+        return;
+    }
 
     let css = normalizeInlineSettingsCss(String(settingsStyles || ""));
     // WHY: only use critical layout CSS as fallback — prepending dark !important broke light theme.
@@ -50,6 +53,7 @@ export const attachSettingsInlineStyles = (host: HTMLElement | null | undefined)
     style.setAttribute(STYLE_MARKER, "");
     style.textContent = css;
     document.head?.appendChild(style);
+    if (host) scheduleBakeScreenColors(host);
 };
 
 /** Retry until the host is connected (Capacitor shell attaches views async). */
