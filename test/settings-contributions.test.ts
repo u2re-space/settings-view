@@ -16,8 +16,13 @@ import {
 } from "com/config/SettingsContributions";
 import {
     contributedTabIds,
-    mountContributions
+    mountContributions,
+    registerWorkcenterSettingsContribution
 } from "../src/ts/settings-contributions.ts";
+import {
+    allowProcessWebLaunchQueue,
+    allowProcessWebShareLaunch
+} from "../../../projects/subsystem/src/other/config/process-ingress";
 
 const webContext = { surface: "web" as const };
 
@@ -231,4 +236,30 @@ test("mountContributions is idempotent for a registered visible contribution", (
     assert.equal(renderCalls, 1);
     assert.equal(root.querySelectorAll(`[data-contributed-tab][data-tab="${id}"]`).length, 1);
     assert.equal(root.querySelectorAll(`[data-contributed-panel][data-tab-panel="${id}"]`).length, 1);
+});
+
+test("process SKU shows Process actions for attach and AI clipboard-write", (t) => {
+    const dispose = registerWorkcenterSettingsContribution();
+    t.after(dispose);
+    const ctx = { surface: "web" as const, sku: "process" as const };
+    assert.ok(contributedTabIds(ctx).includes("workcenter"));
+    const root = createSettingsRoot();
+    mountContributions(root, ctx);
+    const panel = root.querySelector("[data-tab-panel=\"workcenter\"]");
+    assert.ok(panel, "Process panel must mount on the process SKU");
+    const text = panel?.textContent || "";
+    assert.match(text, /Open as attachment in chat/);
+    assert.match(text, /Run AI and write to clipboard/);
+    assert.match(text, /process\.u2re\.space/);
+    assert.match(text, /ai\.u2re\.space/);
+});
+
+test("Process PWA is not a Share Target; Launch Queue stays on", () => {
+    const html = document.documentElement;
+    html.dataset.cwspSku = "process";
+    assert.equal(allowProcessWebShareLaunch(), false);
+    assert.equal(allowProcessWebLaunchQueue(), true);
+    delete html.dataset.cwspSku;
+    assert.equal(allowProcessWebShareLaunch(), true);
+    assert.equal(allowProcessWebLaunchQueue(), true);
 });

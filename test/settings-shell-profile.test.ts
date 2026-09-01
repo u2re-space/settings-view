@@ -142,8 +142,8 @@ test("defaultSettingsTabForProfile: document → markdown", () => {
     assert.equal(defaultSettingsTabForProfile("document"), "markdown");
 });
 
-test("defaultSettingsTabForProfile: process → ai", () => {
-    assert.equal(defaultSettingsTabForProfile("process"), "ai");
+test("defaultSettingsTabForProfile: process → workcenter", () => {
+    assert.equal(defaultSettingsTabForProfile("process"), "workcenter");
 });
 
 // ---------------------------------------------------------------------------
