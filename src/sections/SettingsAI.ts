@@ -2,7 +2,7 @@ import { H } from "@fest-lib/lure";
 
 export const createAiSection = () => H`<section class="card settings-tab-panel is-active" data-tab-panel="ai">
       <h3>AI</h3>
-      <p class="settings-hint">Process chat posts to process.u2re.space / ai.u2re.space <code>/api/process</code>. Base URL and key below are the direct-model fallback and are also sent with that request.</p>
+      <p class="settings-hint">Process chat posts to <code>/api/process</code> (PWA SW, Capacitor Java, then process.u2re.space). Base URL and key below are the same fallback the backends use when core is down.</p>
       <form class="settings-panel-form" novalidate onsubmit="return false">
       <label class="field">
         <span>Base URL</span>

@@ -254,10 +254,10 @@ test("process SKU shows Process actions for attach and AI clipboard-write", (t) 
     assert.match(text, /ai\.u2re\.space/);
 });
 
-test("Process PWA is not a Share Target; Launch Queue stays on", () => {
+test("Process PWA is a Share Target; Launch Queue stays on", () => {
     const html = document.documentElement;
     html.dataset.cwspSku = "process";
-    assert.equal(allowProcessWebShareLaunch(), false);
+    assert.equal(allowProcessWebShareLaunch(), true);
     assert.equal(allowProcessWebLaunchQueue(), true);
     delete html.dataset.cwspSku;
     assert.equal(allowProcessWebShareLaunch(), true);
