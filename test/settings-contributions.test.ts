@@ -252,6 +252,8 @@ test("process SKU shows Process actions for attach and AI clipboard-write", (t) 
     assert.match(text, /Open as attachment in chat/);
     assert.match(text, /Run AI and write to clipboard/);
     assert.match(text, /Share Target/);
+    assert.doesNotMatch(text, /Copy AI result to clipboard/);
+    assert.doesNotMatch(text, /keep background service/);
     assert.doesNotMatch(text, /Auto-run pinned/);
     assert.doesNotMatch(text, /Default instruction id/);
     assert.doesNotMatch(text, /Allow automatic AI/);
@@ -282,6 +284,8 @@ test("retired master flags do not force attach over per-kind mode", () => {
         "image"
     );
     assert.equal(row.mode, "process");
+    assert.equal(row.copyToClipboard, true);
+    assert.equal(row.backgroundClipboard, true);
 });
 
 test("Process PWA is a Share Target; Launch Queue stays on", () => {
