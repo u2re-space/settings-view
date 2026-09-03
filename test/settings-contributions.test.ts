@@ -21,7 +21,8 @@ import {
 } from "../src/ts/settings-contributions.ts";
 import {
     allowProcessWebLaunchQueue,
-    allowProcessWebShareLaunch
+    allowProcessWebShareLaunch,
+    resolveProcessIngressKind
 } from "../../../projects/subsystem/src/other/config/process-ingress";
 
 const webContext = { surface: "web" as const };
@@ -250,8 +251,37 @@ test("process SKU shows Process actions for attach and AI clipboard-write", (t) 
     const text = panel?.textContent || "";
     assert.match(text, /Open as attachment in chat/);
     assert.match(text, /Run AI and write to clipboard/);
-    assert.match(text, /process\.u2re\.space/);
-    assert.match(text, /ai\.u2re\.space/);
+    assert.match(text, /Share Target/);
+    assert.doesNotMatch(text, /Auto-run pinned/);
+    assert.doesNotMatch(text, /Default instruction id/);
+    assert.doesNotMatch(text, /Allow automatic AI/);
+    assert.doesNotMatch(text, /Share target mode|AI action/);
+    assert.doesNotMatch(text, /Auto AI on Share Target/);
+});
+
+test("retired master flags do not force attach over per-kind mode", () => {
+    const row = resolveProcessIngressKind(
+        {
+            ai: {
+                autoProcessShared: false,
+                shareTargetMode: "analyze",
+                processIngress: {
+                    autoProcess: false,
+                    backgroundClipboard: false,
+                    kinds: {
+                        markdown: { mode: "process", instructionId: "", copyToClipboard: true },
+                        text: { mode: "process", instructionId: "", copyToClipboard: true },
+                        document: { mode: "process", instructionId: "", copyToClipboard: true },
+                        image: { mode: "process", instructionId: "", copyToClipboard: true },
+                        url: { mode: "process", instructionId: "", copyToClipboard: true },
+                        other: { mode: "attach", instructionId: "", copyToClipboard: false }
+                    }
+                }
+            }
+        },
+        "image"
+    );
+    assert.equal(row.mode, "process");
 });
 
 test("Process PWA is a Share Target; Launch Queue stays on", () => {

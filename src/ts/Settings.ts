@@ -337,7 +337,6 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
     const requestTimeoutMedium = field('[data-field="ai.requestTimeout.medium"]') as HTMLInputElement | null;
     const requestTimeoutHigh = field('[data-field="ai.requestTimeout.high"]') as HTMLInputElement | null;
     const maxRetries = field('[data-field="ai.maxRetries"]') as HTMLInputElement | null;
-    const mode = field('[data-field="ai.shareTargetMode"]') as HTMLSelectElement | null;
     const syncCustomModelVisibility = () => {
         const isCustom = (model?.value || "").trim() === "custom";
         if (customModelGroup) customModelGroup.hidden = !isCustom;
@@ -364,7 +363,6 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         syncCustomModelVisibility();
     });
 
-    const autoProcessShared = field('[data-field="ai.autoProcessShared"]') as HTMLInputElement | null;
     const responseLanguage = field('[data-field="ai.responseLanguage"]') as HTMLSelectElement | null;
     const translateResults = field('[data-field="ai.translateResults"]') as HTMLInputElement | null;
     const generateSvgGraphics = field('[data-field="ai.generateSvgGraphics"]') as HTMLInputElement | null;
@@ -681,8 +679,6 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             if (requestTimeoutMedium) requestTimeoutMedium.value = String(s?.ai?.requestTimeout?.medium ?? 300000);
             if (requestTimeoutHigh) requestTimeoutHigh.value = String(s?.ai?.requestTimeout?.high ?? 900000);
             if (maxRetries) maxRetries.value = String(s?.ai?.maxRetries ?? 2);
-            if (mode) mode.value = (s?.ai?.shareTargetMode || "recognize") as any;
-            if (autoProcessShared) autoProcessShared.checked = (s?.ai?.autoProcessShared ?? true) !== false;
             if (responseLanguage) responseLanguage.value = (s?.ai?.responseLanguage || "auto") as any;
             if (translateResults) translateResults.checked = Boolean(s?.ai?.translateResults);
             if (generateSvgGraphics) generateSvgGraphics.checked = Boolean(s?.ai?.generateSvgGraphics);
@@ -1488,33 +1484,38 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             const next: AppSettings = {
                 ...(current as AppSettings),
                 ai: hasPanel("ai")
-                    ? {
-                          baseUrl: apiUrl?.value?.trim?.() || "",
-                          apiKey: apiKey?.value?.trim?.() || "",
-                          model: (model?.value || "gpt-5.6-luna") as any,
-                          customModel: model?.value === "custom" ? (customModel?.value?.trim?.() || "") : "",
-                          defaultReasoningEffort: (defaultReasoningEffort?.value as any) || "medium",
-                          defaultVerbosity: (defaultVerbosity?.value as any) || "medium",
-                          maxOutputTokens: parseNumberOrDefault(maxOutputTokens?.value, 400000),
-                          contextTruncation: (contextTruncation?.value as any) || "disabled",
-                          promptCacheRetention: (promptCacheRetention?.value as any) || "in-memory",
-                          maxToolCalls: parseNumberOrDefault(maxToolCalls?.value, 8),
-                          parallelToolCalls: (parallelToolCalls?.checked ?? true) !== false,
-                          requestTimeout: {
-                              low: parseNumberOrDefault(requestTimeoutLow?.value, 60000),
-                              medium: parseNumberOrDefault(requestTimeoutMedium?.value, 300000),
-                              high: parseNumberOrDefault(requestTimeoutHigh?.value, 900000),
-                          },
-                          maxRetries: parseNumberOrDefault(maxRetries?.value, 2),
-                          shareTargetMode: (mode?.value as any) || "recognize",
-                          autoProcessShared: (autoProcessShared?.checked ?? true) !== false,
-                          responseLanguage: (responseLanguage?.value as any) || "auto",
-                          translateResults: Boolean(translateResults?.checked),
-                          generateSvgGraphics: Boolean(generateSvgGraphics?.checked),
-                          mcp: hasPanel("mcp") ? collectMcpConfigurations(mcpSection) : (current.ai?.mcp || []),
-                          customInstructions: current.ai?.customInstructions || [],
-                          activeInstructionId: current.ai?.activeInstructionId || "",
-                      }
+                    ? (() => {
+                          const nextAi = {
+                              ...(current.ai || {}),
+                              baseUrl: apiUrl?.value?.trim?.() || "",
+                              apiKey: apiKey?.value?.trim?.() || "",
+                              model: (model?.value || "gpt-5.6-luna") as any,
+                              customModel: model?.value === "custom" ? (customModel?.value?.trim?.() || "") : "",
+                              defaultReasoningEffort: (defaultReasoningEffort?.value as any) || "medium",
+                              defaultVerbosity: (defaultVerbosity?.value as any) || "medium",
+                              maxOutputTokens: parseNumberOrDefault(maxOutputTokens?.value, 400000),
+                              contextTruncation: (contextTruncation?.value as any) || "disabled",
+                              promptCacheRetention: (promptCacheRetention?.value as any) || "in-memory",
+                              maxToolCalls: parseNumberOrDefault(maxToolCalls?.value, 8),
+                              parallelToolCalls: (parallelToolCalls?.checked ?? true) !== false,
+                              requestTimeout: {
+                                  low: parseNumberOrDefault(requestTimeoutLow?.value, 60000),
+                                  medium: parseNumberOrDefault(requestTimeoutMedium?.value, 300000),
+                                  high: parseNumberOrDefault(requestTimeoutHigh?.value, 900000),
+                              },
+                              maxRetries: parseNumberOrDefault(maxRetries?.value, 2),
+                              responseLanguage: (responseLanguage?.value as any) || "auto",
+                              translateResults: Boolean(translateResults?.checked),
+                              generateSvgGraphics: Boolean(generateSvgGraphics?.checked),
+                              mcp: hasPanel("mcp") ? collectMcpConfigurations(mcpSection) : (current.ai?.mcp || []),
+                              customInstructions: current.ai?.customInstructions || [],
+                              activeInstructionId: current.ai?.activeInstructionId || "",
+                              processIngress: current.ai?.processIngress,
+                          };
+                          delete nextAi.shareTargetMode;
+                          delete nextAi.autoProcessShared;
+                          return nextAi;
+                      })()
                     : (current.ai || {}),
                 speech: hasPanel("ai")
                     ? { language: (speechLanguage?.value as any) || "en-US" }

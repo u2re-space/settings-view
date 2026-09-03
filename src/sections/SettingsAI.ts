@@ -90,17 +90,6 @@ export const createAiSection = () => H`<section class="card settings-tab-panel i
         </div>
       </details>
       <label class="field">
-        <span>Share target mode</span>
-        <select class="form-select" data-field="ai.shareTargetMode">
-          <option value="recognize">Recognize and copy</option>
-          <option value="analyze">Analyze and store</option>
-        </select>
-      </label>
-      <label class="field checkbox form-checkbox">
-        <input type="checkbox" data-field="ai.autoProcessShared" />
-        <span>Auto AI on Share Target / File Open (and copy to clipboard)</span>
-      </label>
-      <label class="field">
         <span>Response language</span>
         <select class="form-select" data-field="ai.responseLanguage"></select>
       </label>
