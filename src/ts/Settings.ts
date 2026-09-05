@@ -79,6 +79,7 @@ import { androidPackageForSku, apkManifestForSku, isCwspSku, type CwspSku } from
 import { requestCapacitorSettingsPermissionsAfterSave } from "boot/capacitor-settings-permissions";
 import { isCapacitorNative } from "boot/capacitor-permissions";
 import { attachSettingsInlineStylesWhenConnected } from "./settings-styles-attach";
+import { highlightCodeFields } from "@fest-lib/fl-ui/markdown/highlight";
 import "@fest-lib/icon";
 
 export type SettingsViewOptions = {
@@ -799,6 +800,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             applyAirpadRuntimeFromAppSettings(s);
             applyTheme(s);
             applyContributions(root, s, contributionCtx);
+            highlightCodeFields(root);
             opts.onTheme?.(((s?.appearance?.theme as string) || "auto") as "auto" | "light" | "dark");
             // Capacitor: hydrate local + gateway versions so a newer sibling APK shows without tapping Check.
             if (isCapacitorNative()) {
@@ -858,6 +860,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         })
         .catch(() => {
             renderMcpConfigurations(mcpSection, []);
+            highlightCodeFields(root);
         });
 
     showKey?.addEventListener("change", () => {
@@ -1960,6 +1963,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
 
     root.addEventListener("cwsp-settings-resync", () => {
         attachSettingsInlineStylesWhenConnected(root);
+        highlightCodeFields(root);
         switchSettingsTab(root.querySelector("[data-settings-tabs]")?.getAttribute("data-active-tab") || initialTab);
     });
 

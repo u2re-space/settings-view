@@ -111,15 +111,20 @@ export const createMarkdownSection = () => H`<section class="card settings-tab-p
       </label>
       <label class="field">
         <span>Custom CSS (screen/view)</span>
-        <textarea class="form-input" rows="8" data-field="appearance.markdown.customCss" placeholder=".markdown-viewer-content h1 { color: var(--color-primary); }"></textarea>
+        <div class="code-highlight-host settings-code-field">
+          <textarea class="form-input code-highlight-source" rows="8" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off" data-language="css" data-field="appearance.markdown.customCss" placeholder=".markdown-viewer-content h1 { color: var(--color-primary); }"></textarea>
+        </div>
       </label>
       <label class="field">
         <span>Custom CSS (print only)</span>
-        <textarea class="form-input" rows="8" data-field="appearance.markdown.printCss" placeholder=".markdown-viewer-content { font-size: 12pt; line-height: 1.5; }"></textarea>
+        <div class="code-highlight-host settings-code-field">
+          <textarea class="form-input code-highlight-source" rows="8" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off" data-language="css" data-field="appearance.markdown.printCss" placeholder=".markdown-viewer-content { font-size: 12pt; line-height: 1.5; }"></textarea>
+        </div>
       </label>
       <label class="field">
         <span>Markdown extensions (JSON rules)</span>
-        <textarea class="form-input" rows="10" data-field="appearance.markdown.extensions" placeholder='[
+        <div class="code-highlight-host settings-code-field">
+          <textarea class="form-input code-highlight-source" rows="10" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off" data-language="json" data-field="appearance.markdown.extensions" placeholder='[
   {
     "id": "highlight",
     "pattern": "==(.+?)==",
@@ -128,6 +133,7 @@ export const createMarkdownSection = () => H`<section class="card settings-tab-p
     "enabled": true
   }
 ]'></textarea>
+        </div>
       </label>
       <div class="mcp-actions">
         <button class="btn" type="button" data-action="open-user-styles">Open <code>/user/styles/</code> in Explorer</button>

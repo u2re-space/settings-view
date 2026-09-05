@@ -1,3 +1,5 @@
+@use "veela-lib/ui/code-highlight";
+
 /* Settings view — self-contained stylesheet.
  * INVARIANT: Works inside open shadow roots: no reliance on `html:has(...)`, `:root:has(...)`,
  * or `html[data-active-view]` for paint. Uses inherited `color-scheme` + `light-dark()` fallbacks
@@ -687,6 +689,38 @@
             &:focus-visible {
                 /*border-color: color-mix(in oklab, var(--sv-primary, #5a7fff) 55%, var(--sv-outline, light-dark(#c5cdd8, #3d4755)));*/
                 /*box-shadow: 0 0 0 3px color-mix(in oklab, var(--sv-primary, #5a7fff) 22%, transparent);*/
+            }
+        }
+
+        .settings-code-field {
+            position: relative;
+            inline-size: 100%;
+            min-inline-size: 0;
+
+            textarea.form-input {
+                container-type: normal;
+                resize: vertical;
+                font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+                font-size: 0.8125rem;
+                line-height: 1.45;
+                tab-size: 4;
+                white-space: pre;
+                overflow: auto;
+                min-block-size: 8.5rem;
+                --code-line-height: 1.45;
+            }
+
+            /* WHY: `.form-input` forces `-webkit-text-fill-color`; overlay paint
+             * is only visible once the source glyphs are transparent. */
+            textarea.form-input.code-highlight-painted {
+                color: transparent;
+                -webkit-text-fill-color: transparent;
+                caret-color: var(--sv-fg, light-dark(#12151a, #e8edf2));
+            }
+
+            textarea.form-input::placeholder {
+                color: transparent;
+                -webkit-text-fill-color: transparent;
             }
         }
 
