@@ -302,12 +302,14 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             remoteCode != null
                 ? ` · gateway ${remoteName || "?"} (${remoteCode})`
                 : "";
+        const src = String(echo.baseUrl || echo.source || "").trim();
+        const srcBit = src ? ` · ${src}` : "";
         if (!installed) {
-            el.textContent = `Not installed — Download & install to sideload.${remoteBit}`;
+            el.textContent = `Not installed — Download & install to sideload.${remoteBit}${srcBit}`;
             return;
         }
         el.textContent =
-            `Installed: ${name || "?"} (${code ?? "?"})` + (sig ? ` · sig ${sig}…` : "") + remoteBit;
+            `Installed: ${name || "?"} (${code ?? "?"})` + (sig ? ` · sig ${sig}…` : "") + remoteBit + srcBit;
     };
 
     const apkBridgeFields = () => {
@@ -316,6 +318,16 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
         const tokenEl = root.querySelector('[data-field="core.ecosystemToken"]') as HTMLInputElement | null;
         const insecureEl = root.querySelector('[data-field="core.allowInsecureTls"]') as HTMLInputElement | null;
         return { srcEl, endpointEl, tokenEl, insecureEl };
+    };
+
+    /** WHY: picker defaulted to wan while Relay was already 192.168.0.200 — Check still hit WAN. */
+    const resolveApkUpdateSource = (s?: { shell?: { apkUpdateSource?: string }; core?: { endpointUrl?: string } }): string => {
+        const { srcEl, endpointEl } = apkBridgeFields();
+        const picked = String(srcEl?.value || s?.shell?.apkUpdateSource || "").trim().toLowerCase();
+        if (picked === "lan" || picked === "relay" || picked === "wan") return picked;
+        const ep = String(endpointEl?.value || s?.core?.endpointUrl || "").toLowerCase();
+        if (ep.includes("192.168.0.200")) return "lan";
+        return "wan";
     };
 
     const field = (sel: string) => root.querySelector(sel) as HTMLInputElement | HTMLSelectElement | null;
@@ -802,7 +814,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
             applyContributions(root, s, contributionCtx);
             highlightCodeFields(root);
             opts.onTheme?.(((s?.appearance?.theme as string) || "auto") as "auto" | "light" | "dark");
-            // Capacitor: hydrate local + gateway versions so a newer sibling APK shows without tapping Check.
+            // Capacitor: local package only — remote check used to block the UI on a dead WAN host.
             if (isCapacitorNative()) {
                 void import("com/routing/native/cws-bridge")
                     .then(async (m) => {
@@ -810,38 +822,10 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                             ...root.querySelectorAll<HTMLElement>("[data-apk-local-version]")
                         ];
                         if (!hints.length) return;
-                        const { srcEl, endpointEl, tokenEl, insecureEl } = apkBridgeFields();
-                        const source = (srcEl?.value || s.shell?.apkUpdateSource || "wan").trim();
-                        const endpointUrl = (endpointEl?.value || s.core?.endpointUrl || "").trim();
-                        const token = (tokenEl?.value || "").trim() || resolveEcosystemToken(s);
-                        const allowInsecureTls =
-                            insecureEl?.checked ?? Boolean((s.core as { allowInsecureTls?: boolean })?.allowInsecureTls);
                         await Promise.all(
                             hints.map(async (el) => {
                                 const target = apkUpdateTarget(el);
                                 try {
-                                    const result = await m.invokeCwsNative("app:update:check", {
-                                        ...target,
-                                        source,
-                                        endpointUrl,
-                                        token,
-                                        ecosystemToken: token,
-                                        allowInsecureTls
-                                    });
-                                    const echo = ((result as { echo?: Record<string, unknown> })?.echo ||
-                                        {}) as Record<string, unknown>;
-                                    if (echo.error) {
-                                        const info = await m.invokeCwsNative("app:info", target);
-                                        paintApkVersion(
-                                            el,
-                                            ((info as { echo?: Record<string, unknown> })?.echo ||
-                                                {}) as Record<string, unknown>,
-                                            info
-                                        );
-                                        return;
-                                    }
-                                    paintApkVersion(el, echo, result);
-                                } catch {
                                     const info = await m.invokeCwsNative("app:info", target);
                                     paintApkVersion(
                                         el,
@@ -849,6 +833,8 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                                             {}) as Record<string, unknown>,
                                         info
                                     );
+                                } catch {
+                                    /* native bridge unavailable */
                                 }
                             })
                         );
@@ -1369,7 +1355,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
                     const versionEl = root.querySelector(
                         "[data-apk-local-version]"
                     ) as HTMLElement | null;
-                    const source = (srcEl?.value || s.shell?.apkUpdateSource || "wan").trim();
+                    const source = resolveApkUpdateSource(s);
                     const endpointUrl = (endpointEl?.value || s.core?.endpointUrl || "").trim();
                     const token =
                         (tokenEl?.value || "").trim() || resolveEcosystemToken(s);
