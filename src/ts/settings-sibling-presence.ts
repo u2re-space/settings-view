@@ -26,32 +26,14 @@ type SiblingSection = (typeof SIBLING_HUB_SETTINGS_SECTIONS)[number];
 let cachedInstalled: SiblingSection[] | null = null;
 let inflight: Promise<SiblingSection[]> | null = null;
 
-const isNativeApkHost = (): boolean => {
-    try {
-        const g = globalThis as {
-            Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string };
-            __CWS_NATIVE__?: boolean;
-        };
-        const platform = g.Capacitor?.getPlatform?.();
-        return Boolean(
-            g.Capacitor?.isNativePlatform?.() ||
-                platform === "android" ||
-                platform === "ios" ||
-                g.__CWS_NATIVE__ === true
-        );
-    } catch {
-        return false;
-    }
-};
-
-/** Hub URL tree, or launcher APK (sibling packages), otherwise no area nav. */
+/** Hub URL tree still resolves section for deep-links; launcher APK has no SKU strip. */
 export const resolveSettingsAreaNavMode = (): SettingsAreaNavMode => {
     const sku = inferCwspSkuFromLocation() || readCwspSku();
     if (sku && sku !== "launcher" && sku !== "crx") return "none";
     if (resolveEffectiveHubSettingsSection() !== null) return "hub";
     // WHY: Settings is a desktop window on `/` — still show Explorer/Document/Process/Transfer areas.
     if (isWebHubSurface()) return "hub";
-    if (sku === "launcher" && isNativeApkHost()) return "launcher";
+    /* WHY: each SKU keeps its own settings tabs; no Shell/Explorer/Document strip. */
     return "none";
 };
 

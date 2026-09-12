@@ -97,14 +97,6 @@ export const resetSettingsViewCache = (): void => {
     cachedSettingsViewRoot = null;
 };
 
-const HUB_SECTION_LABELS: { id: HubSettingsSection; label: string; icon: string }[] = [
-    { id: "hub", label: "Shell", icon: "squares-four" },
-    { id: "explorer", label: "Explorer", icon: "folder" },
-    { id: "document", label: "Document", icon: "books" },
-    { id: "process", label: "Process", icon: "lightning" },
-    { id: "transfer", label: "Transfer", icon: "arrows-left-right" }
-];
-
 export const createSettingsView = (opts: SettingsViewOptions) => {
     const hubSection = opts.hubSection || resolveEffectiveHubSettingsSection() || "hub";
     if (cachedSettingsViewRoot) {
@@ -182,31 +174,7 @@ export const createSettingsView = (opts: SettingsViewOptions) => {
     root.dataset.hubSettingsSection = contributionCtx.hubSection || hubSection;
     mountContributions(root, contributionCtx);
 
-    if (visibleAreas.length > 1) {
-        const header = root.querySelector(".settings-screen__top");
-        const tabList = root.querySelector("[data-settings-tabs]");
-        if (header && tabList) {
-            const nav = document.createElement("nav");
-            nav.className = "settings-tab-actions settings-sku-nav";
-            nav.setAttribute("data-settings-sku-nav", "");
-            nav.setAttribute("aria-label", "Settings area");
-            for (const item of HUB_SECTION_LABELS) {
-                if (!visibleAreas.includes(item.id)) continue;
-                const btn = document.createElement("button");
-                btn.className = "settings-tab-btn";
-                btn.type = "button";
-                btn.setAttribute("data-action", "open-settings-section");
-                btn.setAttribute("data-section", item.id);
-                btn.append(
-                    H`<ui-icon class="settings-sku-nav__icon" icon="${item.icon}" icon-style="duotone" aria-hidden="true"></ui-icon>` as HTMLElement,
-                    H`<span>${item.label}</span>` as HTMLElement
-                );
-                btn.classList.toggle("is-active", item.id === (contributionCtx.hubSection || "hub"));
-                nav.appendChild(btn);
-            }
-            header.insertBefore(nav, tabList);
-        }
-    }
+    /* WHY: SKU strip (Shell / Explorer / Document / …) is gone; each host keeps pruneBuiltInSettingsTabs. */
 
     if (navMode === "launcher" && installedSiblings === null) {
         void refreshInstalledSiblingSettingsSections().then((next) => {
