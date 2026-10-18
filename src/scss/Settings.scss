@@ -20,7 +20,7 @@
         --sv-muted: var(--color-on-surface-variant, --u2-color-mod(var(--base-color, #5a7fff), 700));
         --sv-outline: var(--color-outline-variant, --u2-color-mod(var(--base-color, #5a7fff), 400));
         --sv-surface-1: var(--color-surface-container-low, --u2-color-mod(var(--base-color, #5a7fff), 10));
-        --sv-surface-2: var(--color-surface-container, --u2-color-mod(var(--base-color, #5a7fff), 10));
+        --sv-surface-2: var(--color-surface, --u2-color-mod(var(--base-color, #5a7fff), 10));
     }
 
     :is(html[data-theme="dark"] .view-settings, :host-context(html[data-theme="dark"]) .view-settings) {
@@ -30,7 +30,7 @@
         --sv-muted: var(--color-on-surface-variant, --u2-color-mod(var(--base-color, #5a7fff), 280));
         --sv-outline: var(--color-outline-variant, --u2-color-mod(var(--base-color, #5a7fff), 640));
         --sv-surface-1: var(--color-surface-container-low, --u2-color-mod(var(--base-color, #5a7fff), 900));
-        --sv-surface-2: var(--color-surface-container, --u2-color-mod(var(--base-color, #5a7fff), 960));
+        --sv-surface-2: var(--color-surface, --u2-color-mod(var(--base-color, #5a7fff), 960));
     }
 
     .view-settings {
@@ -186,24 +186,17 @@
             display: flex;
             flex-direction: column;
             gap: 1rem;
-            padding-block: 0rem;
             scrollbar-width: thin;
             scrollbar-color: var(--sv-outline, light-dark(#c5cdd8, #3d4755)) transparent;
             touch-action: pan-y;
             max-inline-size: stretch;
-            background: var(--sv-surface-1, light-dark(#f4f6fa, #1c232d));
+            background: var(--sv-surface-2, light-dark(#f4f6fa, #1c232d)) !important;
 
             block-size: stretch;
             border-radius: 0px;
             overflow: hidden;
             overflow-y: auto;
-            touch-action: pan-y;
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior: contain;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            padding-block: 0px;
+            padding-block: 1rem;
             scrollbar-width: thin;
             scrollbar-color: var(--sv-outline, light-dark(#c5cdd8, #3d4755)) transparent;
             scrollbar-gutter: stable;
@@ -356,7 +349,7 @@
             flex-shrink: 0;
             padding-block: 0.5rem;
             padding-inline: 0.25rem;
-            background: var(--sv-surface-1, light-dark(#f4f6fa, #1c232d));
+            background: var(--sv-surface-2, light-dark(#f4f6fa, #1c232d));
             /*border-block-start: 1px solid var(--sv-divider);*/
             /*background: color-mix(in oklab, var(--sv-surface-1, light-dark(#ffffff, #171c24)) 85%, var(--sv-bg, light-dark(#eef1f6, #0f1318)));
             box-shadow: 0 -10px 28px color-mix(in oklab, var(--sv-fg, light-dark(#12151a, #e8edf2)) 4%, transparent);*/
@@ -391,8 +384,8 @@
             max-inline-size: stretch;
             /* WHY: keep the horizontal scrollbar off the pill tabs. */
             padding-block: 0.25rem;
-            background-color: var(--sv-surface-1, light-dark(#ffffff, #171c24));
-            border-block-start: 1px solid var(--sv-divider);
+            background-color: var(--sv-surface-2, light-dark(#ffffff, #171c24));
+            border-block-start: 0px solid var(--sv-divider);
             padding-block-end: 0.25rem;
             padding-inline: 0.5rem;
         }
@@ -403,7 +396,7 @@
                 margin: 0px;
                 border: 0px none transparent;
                 border-block-start: 0px none transparent;
-                border-block-end: 1px solid var(--sv-divider);
+                border-block-end: 0px solid var(--sv-divider);
                 background-color: transparent;
             }
         }
@@ -473,9 +466,9 @@
             border: none;
             border: 2px solid transparent;
             border-radius: 999px;
-            background: color-mix(in oklab, var(--sv-surface-1, light-dark(#f4f6fa, #1c232d)) 94%, transparent);
+            background: color-mix(in oklab, var(--sv-surface-2, light-dark(#f4f6fa, #1c232d)) 94%, transparent);
             color: var(--sv-muted, light-dark(#5c6570, #a8b0bc));
-            color: contrast-color(var(--sv-surface-1, light-dark(#f4f6fa, #1c232d)));
+            color: contrast-color(var(--sv-surface-2, light-dark(#f4f6fa, #1c232d)));
             font-size: 0.75rem;
             font-weight: 500;
             transition:
@@ -535,13 +528,14 @@
             gap: 0.75rem;
             padding: 1rem;
             inline-size: stretch;
-            border: none;
+            border: none !important;
             border-radius: 16px;
             max-inline-size: stretch;
             box-shadow: none;
             /*box-shadow: var(--sv-elev), 0 0 0 1px color-mix(in oklab, var(--sv-outline, light-dark(#c5cdd8, #3d4755)) 14%, transparent);*/
-            background: var(--sv-surface-2, light-dark(#ffffff, #171c24));
+            background: var(--sv-surface-1) !important;
             margin-inline: 0.5rem;
+            outline: none !important;
 
             @container settings-view (max-inline-size: 480px) {
                 padding: 0.75rem;
@@ -592,7 +586,7 @@
             max-inline-size: stretch;
             padding: 0.5rem;
             border-radius: 12px;
-            background: var(--sv-surface-2, light-dark(#ffffff, #171c24));
+            background: var(--sv-surface-1, light-dark(#ffffff, #171c24));
             border: 0px solid color-mix(in oklab, var(--sv-outline, light-dark(#c5cdd8, #3d4755)) 40%, transparent);
         }
 
@@ -613,8 +607,8 @@
             margin-block: 0.35rem 0.75rem;
             padding: 0.65rem 0.75rem;
             border-radius: 10px;
-            background: var(--sv-surface-1, light-dark(#f4f6f8, #12171e));
-            border: 1px solid color-mix(in oklab, var(--sv-outline, light-dark(#c5cdd8, #3d4755)) 45%, transparent);
+            background: var(--sv-surface-2, light-dark(#f4f6f8, #12171e));
+            border: 0px solid color-mix(in oklab, var(--sv-outline, light-dark(#c5cdd8, #3d4755)) 45%, transparent);
 
             h4 {
                 margin: 0;
@@ -671,7 +665,7 @@
             padding: 0.5rem 0.65rem;
             border-radius: 10px;
             /*border: 1px solid color-mix(in oklab, var(--sv-outline, light-dark(#c5cdd8, #3d4755)) 45%, transparent);*/
-            background: var(--sv-surface-1, light-dark(#ffffff, #171c24));
+            background: var(--sv-surface-2, light-dark(#ffffff, #171c24));
             color: var(--sv-fg, light-dark(#12151a, #e8edf2));
             -webkit-text-fill-color: var(--sv-fg, light-dark(#12151a, #e8edf2));
             caret-color: var(--sv-fg, light-dark(#12151a, #e8edf2));
@@ -736,7 +730,7 @@
             background-repeat: no-repeat;
             pointer-events: auto;
             max-inline-size: stretch;
-            background-color: var(--sv-surface-1, light-dark(#ffffff, #171c24));
+            background-color: var(--sv-surface-2, light-dark(#ffffff, #171c24));
             border: none 0px transparent;
             outline: none 0px transparent;
             box-shadow: none;
@@ -752,9 +746,9 @@
             min-block-size: 2.5rem;
             border: none;
             border-radius: 999px;
-            background: color-mix(in oklab, var(--sv-surface-1, light-dark(#ffffff, #171c24)) 90%, transparent);
+            background: color-mix(in oklab, var(--sv-surface-2, light-dark(#ffffff, #171c24)) 90%, transparent);
             color: var(--sv-fg, var(--color-on-surface));
-            color: contrast-color(var(--sv-surface-1, var(--color-surface)));
+            color: contrast-color(var(--sv-surface-2, var(--color-surface)));
             font-size: 0.8125rem;
             font-weight: 500;
             cursor: pointer;
@@ -931,7 +925,7 @@
             flex-direction: column;
             margin-block-end: 2rem;
             padding-block-end: 2rem;
-            border-block-end: 1px solid var(--sv-divider);
+            border-block-end: 0px solid var(--sv-divider);
             max-inline-size: stretch;
 
             &:last-of-type {
@@ -992,12 +986,12 @@
             padding: 0.55rem 1.1rem;
             border-radius: 8px;
             border: 0px solid color-mix(in oklab, var(--sv-outline, light-dark(#c5cdd8, #3d4755)) 40%, transparent);
-            background: var(--sv-surface-1, light-dark(#ffffff, #171c24));
+            background: var(--sv-surface-2, light-dark(#ffffff, #171c24));
             color: var(--sv-fg, light-dark(#12151a, #e8edf2));
             cursor: pointer;
             max-inline-size: stretch;
             color: var(--sv-fg, light-dark(#12151a, #e8edf2));
-            color: contrast-color(var(--sv-surface-1, var(--color-surface)));
+            color: contrast-color(var(--sv-surface-2, var(--color-surface)));
 
             &--primary {
                 background: var(--sv-accent, var(--sv-primary, #5a7fff));
