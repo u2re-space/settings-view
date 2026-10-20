@@ -206,6 +206,14 @@
 
             z-index: 0;
 
+            /* PERF: skip offscreen settings blocks while the phone composites above 60 Hz. */
+            @media (pointer: coarse) {
+                > * {
+                    content-visibility: auto;
+                    contain-intrinsic-size: auto 8rem;
+                }
+            }
+
             /*
             * Отступ вокруг бокса.
             */
