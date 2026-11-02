@@ -665,6 +665,9 @@
             display: flex;
             flex-wrap: wrap;
             gap: 0.45rem;
+            place-content: center;
+            place-items: center;
+            justify-content: start;
         }
 
         .appearance-swatch {
@@ -675,6 +678,9 @@
             padding: 0;
             cursor: pointer;
             background: var(--color-primary, #5a9ec8);
+            place-content: center;
+            place-items: center;
+            display: flex;
         }
 
         .appearance-swatch[aria-selected="true"] {
@@ -690,6 +696,16 @@
         .appearance-hue__range {
             inline-size: 100%;
             accent-color: var(--color-primary, #5a9ec8);
+            background-image: linear-gradient(
+                to right,
+                hsl(0deg 50% 50%),
+                hsl(60deg 50% 50%),
+                hsl(120deg 50% 50%),
+                hsl(180deg 50% 50%),
+                hsl(240deg 50% 50%),
+                hsl(300deg 50% 50%),
+                hsl(360deg 50% 50%)
+            ) !important;
         }
 
         .appearance-color-input {

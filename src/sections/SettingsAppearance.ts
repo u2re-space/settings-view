@@ -80,14 +80,13 @@ export const createAppearanceSection = () => {
           <div class="appearance-swatches" role="listbox" aria-label="Accent color">
             ${SWATCHES.map(
                 (s) =>
-                    H`<button type="button" class="appearance-swatch" data-color="${s.hex}" title="${s.label}" aria-label="${s.label}" style="background:${s.hex}"></button>`
-            )}
+                H`<button type="button" class="appearance-swatch" data-color="${s.hex}" title="${s.label}" aria-label="${s.label}" style="background:attr(data-color type(<color>)) !important;"></button>`
+      )} <input class="form-input appearance-color-input" type="color" data-field="appearance.color" value="${FALLBACK_BASE_COLOR}" style="order: 90; width: 3rem; inline-size: 3rem; block-size: stretch; height: stretch;"/>
           </div>
           <label class="appearance-hue">
             <span>Hue</span>
             <input class="appearance-hue__range" type="range" min="0" max="360" value="200" data-field="appearance.hue" />
           </label>
-          <input class="form-input appearance-color-input" type="color" data-field="appearance.color" value="${FALLBACK_BASE_COLOR}" />
         </div>
       </div>
     </section>` as HTMLElement;
